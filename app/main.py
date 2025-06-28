@@ -10,6 +10,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 config = get_config()
+logger.info(f"Config: {config}")
+
 app = FastAPI(
   title="IBKR MCP Server",
   description="Interactive Brokers MCP Server with Docker Gateway Management",
@@ -23,7 +25,8 @@ app.include_router(gateway.router)
 
 
 @app.get("/")
-def read_root():
+def read_root() -> dict:
+  """Read the root endpoint."""
   return {
     "message": "Welcome to the IBKR MCP Server",
     "docs": "/docs",
@@ -39,7 +42,7 @@ async def startup_event():
   # Automatically start the IBKR Gateway
   try:
     logger.info("Starting IBKR Gateway container automatically...")
-    success = await gateway.gateway_manager.start_gateway(port=5000, read_only_api=True)
+    success = await gateway.gateway_manager.start_gateway()
     if success:
       logger.info("IBKR Gateway started successfully!")
     else:
@@ -62,4 +65,8 @@ async def shutdown_event():
 
 if __name__ == "__main__":
   import uvicorn
-  uvicorn.run(app, host="0.0.0.0", port=8000)
+  uvicorn.run(
+    app,
+    host="127.0.0.1",
+    port=config.application_port,
+  )

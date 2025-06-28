@@ -9,32 +9,23 @@ logger = logging.getLogger(__name__)
 class IBKRGatewayManager:
   """Manager for IBKR Gateway container and interactions."""
 
-  def __init__(self, container_name: str = "ibkr-gateway"):
-    self.docker_service = IBKRGatewayDockerService(container_name)
+  def __init__(self) -> None:
+    """Initialize the IBKR Gateway manager."""
+    self.docker_service = IBKRGatewayDockerService()
     self.is_running = False
-    self.gateway_url = "http://localhost:5000"
 
-  async def start_gateway(self,
-                         port: int = 5000,
-                         read_only_api: bool = True,
-                         ibkr_version: str = "latest") -> bool:
+  async def start_gateway(self) -> bool:
     """Start the IBKR Gateway container."""
     try:
-      success = await self.docker_service.start_gateway(
-        port=port,
-        read_only_api=read_only_api,
-        ibkr_version=ibkr_version
-      )
-
+      success = await self.docker_service.start_gateway()
       if success:
         self.is_running = True
-        self.gateway_url = f"http://localhost:{port}"
-        logger.info(f"IBKR Gateway started successfully at {self.gateway_url}")
-
-      return success
-    except Exception as e:
-      logger.error(f"Failed to start gateway: {e}")
+        logger.info("IBKR Gateway started successfully")
+    except Exception:
+      logger.exception("Failed to start gateway")
       return False
+    else:
+      return success
 
   async def stop_gateway(self) -> bool:
     """Stop the IBKR Gateway container."""
@@ -43,26 +34,13 @@ class IBKRGatewayManager:
       if success:
         self.is_running = False
         logger.info("IBKR Gateway stopped successfully")
+    except Exception:
+      logger.exception("Failed to stop gateway")
+      return False
+    else:
       return success
-    except Exception as e:
-      logger.error(f"Failed to stop gateway: {e}")
-      return False
 
-  async def restart_gateway(self,
-                           port: int = 5000,
-                           read_only_api: bool = True,
-                           ibkr_version: str = "latest") -> bool:
-    """Restart the IBKR Gateway container."""
-    try:
-      logger.info("Restarting IBKR Gateway...")
-      await self.stop_gateway()
-      await asyncio.sleep(2)  # Brief pause between stop and start
-      return await self.start_gateway(port, read_only_api, ibkr_version)
-    except Exception as e:
-      logger.error(f"Failed to restart gateway: {e}")
-      return False
-
-  async def get_gateway_status(self) -> Dict[str, Any]:
+  async def get_gateway_status(self) -> dict[str, Any]:
     """Get the current status of the IBKR Gateway."""
     try:
       container_status = await self.docker_service.get_container_status()
@@ -101,10 +79,11 @@ class IBKRGatewayManager:
     """Get the logs from the IBKR Gateway container."""
     return await self.docker_service.get_container_logs(tail)
 
-  async def connect_to_ibkr(self,
-                           host: str = "127.0.0.1",
-                           port: int = 4001,
-                           client_id: int = 1) -> bool:
+  async def connect_to_ibkr(
+      self,
+      host: str = "127.0.0.1",
+      port: int = 4001,
+      client_id: int = 1) -> bool:
     """Connect to IBKR TWS/Gateway through the container."""
     try:
       if not self.is_running:

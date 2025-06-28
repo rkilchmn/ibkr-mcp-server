@@ -1,20 +1,25 @@
-import docker
+"""Docker service for the IBKR Gateway."""
+
+import time
 import asyncio
+import docker
 import logging
-from typing import Optional, Dict, Any
+from ib_async import IB
 from app.core.config import get_config
 
 logger = logging.getLogger(__name__)
-
 config = get_config()
-logger.info(f"Config: {config}")
+
+VNC_PORT = 6080
+API_PORT = 8888
+IBC_COMMAND_SERVER_PORT = 7462
 
 docker_config = {
   "image": "ghcr.io/extrange/ibkr:stable",
   "ports": {
-    6080: 6080,
-    8888: 8888,
-    7462: 7462,
+    VNC_PORT: VNC_PORT,
+    API_PORT: API_PORT,
+    IBC_COMMAND_SERVER_PORT: IBC_COMMAND_SERVER_PORT,
   },
   "environment": {
     "USERNAME": config.ibkr_gateway_username,
@@ -26,24 +31,25 @@ docker_config = {
     "IBC_ReloginAfterSecondFactorAuthenticationTimeout": "yes",
     "IBC_AutoRestartTime": "08:35 AM",
     "IBC_CommandServerPort": "7462",
-    "IBC_ControlFrom": "172.18.0.1",
-    "IBC_BindAddress": "0.0.0.0",
+    "IBC_ControlFrom": "127.0.0.1",
+    "IBC_BindAddress": "127.0.0.1",
   },
 }
 
 class IBKRGatewayDockerService:
   """Service for managing IBKR Gateway Docker container."""
 
-  def __init__(self, container_name: str = "ibkr-gateway"):
+  def __init__(self) -> None:
+    """Initialize the IBKR Gateway Docker service."""
     self.client = docker.from_env()
-    self.container_name = container_name
-    self.container: Optional[docker.models.containers.Container] = None
+    self.container_name = "ibkr-gateway"
+    self.container: docker.models.containers.Container | None = None
+    self._health_check_semaphore = asyncio.Semaphore(1)
+    self._last_health_check = 0
+    self._health_check_interval = 2
+    self._connection_timeout = 30
 
-  async def start_gateway(
-      self,
-      port: int = 5000,
-      read_only_api: bool = True,
-      ibkr_version: str = "latest") -> bool:
+  async def start_gateway(self) -> bool:
     """Start the IBKR Gateway container."""
     try:
       # Check if container already exists
@@ -53,8 +59,7 @@ class IBKRGatewayDockerService:
           logger.info(f"Container {self.container_name} is already running")
           self.container = existing_container
           return True
-        elif existing_container.status == "exited":
-          existing_container.remove()
+        existing_container.remove()
       except docker.errors.NotFound:
         pass
 
@@ -76,112 +81,135 @@ class IBKRGatewayDockerService:
       self.container = self.client.containers.run(**container_config)
 
       # Wait for container to be ready
-      await self._wait_for_container_ready()
+      if not await self.wait_for_container_ready():
+        logger.error("Container failed to become ready")
+        return False
 
-      logger.info(f"IBKR Gateway container started successfully on port {port}")
+    except Exception:
+      logger.exception("Failed to start IBKR Gateway container")
+      return False
+    else:
+      logger.info("IBKR Gateway container started successfully")
       return True
 
-    except Exception as e:
-      logger.error(f"Failed to start IBKR Gateway container: {e}")
+  async def health_check(self) -> bool:
+    """Check if the IBKR Gateway container is running (non-blocking, async)."""
+    current_time = time.time()
+
+    # Rate limiting: don't check too frequently
+    if current_time - self._last_health_check < self._health_check_interval:
+      await asyncio.sleep(
+        self._health_check_interval - (current_time - self._last_health_check))
+
+    async with self._health_check_semaphore:
+      self._last_health_check = time.time()
+      return await self._sync_health_check()
+
+  async def _sync_health_check(self) -> bool:
+    """Check health asynchronously."""
+    ib = None
+    try:
+      ib = IB()
+      await ib.connectAsync("127.0.0.1", API_PORT, 1111)
+      return ib.isConnected()
+    except Exception:
       return False
+    finally:
+      if ib:
+        ib.disconnect()
+
+  async def wait_for_container_ready(self) -> bool:
+    """Wait for the IBKR Gateway container to be ready."""
+    timer = 0
+    while not await self.health_check():
+      if timer > self._connection_timeout:
+        logger.error(f"IBKR Gateway not ready after {self._connection_timeout} seconds")
+        return False
+      await asyncio.sleep(2)
+      timer += 2
+    logger.info(f"IBKR Gateway container is ready after {timer} seconds")
+    return True
+
+  async def get_container_status(self) -> str:
+    """Get the status of the IBKR Gateway container."""
+    try:
+      # Check if container exists and get its status
+      if self.container:
+        container_info = self.container.attrs
+        status = container_info["State"]["Status"]
+      else:
+        try:
+          container = self.client.containers.get(self.container_name)
+          container_info = container.attrs
+          status = container_info["State"]["Status"]
+        except docker.errors.NotFound:
+          return "not_found"
+
+      # Perform health check if container is running
+      health_status = "unknown"
+      if status == "running":
+        try:
+          is_healthy = await self.health_check()
+          health_status = "healthy" if is_healthy else "unhealthy"
+        except Exception:
+          health_status = "health_check_failed"
+
+      return f"{status}:{health_status}"
+
+    except Exception:
+      logger.exception("Failed to get container status")
+      return "error"
 
   async def stop_gateway(self) -> bool:
     """Stop the IBKR Gateway container."""
     try:
       if self.container:
-        logger.info("Stopping IBKR Gateway container...")
-        self.container.stop(timeout=30)
+        logger.debug("Stopping IBKR Gateway container...")
+        self.container.stop(timeout=self._connection_timeout)
         self.container.remove()
         self.container = None
-        logger.info("IBKR Gateway container stopped and removed")
+        logger.debug("IBKR Gateway container stopped and removed")
         return True
-      else:
-        # Try to find and stop container by name
-        try:
-          container = self.client.containers.get(self.container_name)
-          container.stop(timeout=30)
-          container.remove()
-          logger.info("IBKR Gateway container stopped and removed")
-          return True
-        except docker.errors.NotFound:
-          logger.info("No IBKR Gateway container found to stop")
-          return True
-    except Exception as e:
-      logger.error(f"Failed to stop IBKR Gateway container: {e}")
+      try:
+        container = self.client.containers.get(self.container_name)
+        container.stop(timeout=self._connection_timeout)
+        container.remove()
+        logger.debug("IBKR Gateway container stopped and removed")
+      except docker.errors.NotFound:
+        logger.debug("No IBKR Gateway container found to stop")
+        return True
+    except Exception:
+      logger.exception("Failed to stop IBKR Gateway container")
       return False
+    else:
+      return True
 
-  async def get_container_status(self) -> Dict[str, Any]:
-    """Get the current status of the IBKR Gateway container."""
-    try:
-      if self.container:
-        self.container.reload()
-        return {
-          "name": self.container.name,
-          "status": self.container.status,
-          "ports": self.container.ports,
-          "created": self.container.attrs["Created"],
-          "image": self.container.image.tags[0] if self.container.image.tags else self.container.image.id
-        }
-      else:
-        try:
-          container = self.client.containers.get(self.container_name)
-          container.reload()
-          return {
-            "name": container.name,
-            "status": container.status,
-            "ports": container.ports,
-            "created": container.attrs["Created"],
-            "image": container.image.tags[0] if container.image.tags else container.image.id
-          }
-        except docker.errors.NotFound:
-          return {"status": "not_found"}
-    except Exception as e:
-      logger.error(f"Failed to get container status: {e}")
-      return {"status": "error", "message": str(e)}
-
-  async def get_container_logs(self, tail: int = 100) -> str:
-    """Get the logs from the IBKR Gateway container."""
-    try:
-      if self.container:
-        return self.container.logs(tail=tail, timestamps=True).decode('utf-8')
-      else:
-        try:
-          container = self.client.containers.get(self.container_name)
-          return container.logs(tail=tail, timestamps=True).decode('utf-8')
-        except docker.errors.NotFound:
-          return "Container not found"
-    except Exception as e:
-      logger.error(f"Failed to get container logs: {e}")
-      return f"Error getting logs: {e}"
-
-  async def _wait_for_container_ready(self, timeout: int = 60) -> None:
-    """Wait for the container to be ready and healthy."""
-    start_time = asyncio.get_event_loop().time()
-
-    while asyncio.get_event_loop().time() - start_time < timeout:
-      if self.container:
-        self.container.reload()
-        if self.container.status == "running":
-          # Check if the gateway is responding
-          try:
-            # Simple health check - you might want to customize this
-            import httpx
-            async with httpx.AsyncClient(timeout=5.0) as client:
-              response = await client.get("http://localhost:5000/health")
-              if response.status_code == 200:
-                logger.info("IBKR Gateway is ready and responding")
-                return
-          except Exception:
-            pass
-
-      await asyncio.sleep(2)
-
-    logger.warning("Container ready timeout reached")
-
-  def __del__(self):
+  def __del__(self) -> None:
     """Cleanup when the service is destroyed."""
     try:
-      if hasattr(self, 'client'):
+      if hasattr(self, "client"):
         self.client.close()
-    except:
-      pass
+    except Exception:
+      logger.exception("Failed to cleanup IBKR Gateway Docker service")
+
+if __name__ == "__main__":
+  import asyncio
+  logging.basicConfig(level=logging.INFO)
+
+  async def main():
+    config = get_config()
+    service = IBKRGatewayDockerService()
+
+    # Start the gateway
+    success = await service.start_gateway()
+    print(f"Gateway started: {success}")
+
+    if success:
+      # Check health
+      health = await service.health_check()
+      print(f"Health check: {health}")
+
+      # Stop the gateway
+      await service.stop_gateway()
+
+  asyncio.run(main())
