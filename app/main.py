@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from app.api.endpoints import portfolio, gateway
+from app.api.endpoints import gateway
 
 from app.core.config import get_config
 from app.core.setup_logging import setup_logging
@@ -13,7 +13,7 @@ config = get_config()
 logger = setup_logging()
 
 @asynccontextmanager
-async def lifespan() -> AsyncGenerator[None, None]:
+async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
   """Lifespan events for the application."""
   logger.info("Starting IBKR MCP Server...")
   try:
@@ -46,7 +46,6 @@ app = FastAPI(
 )
 
 # Include routers
-app.include_router(portfolio.router)
 app.include_router(gateway.router)
 
 
