@@ -7,6 +7,11 @@ class Config(BaseSettings):
   ibkr_gateway_username: str
   ibkr_gateway_password: str
   application_port: int = 8000
+  log_level: str = "INFO"
+
+  # Non-essential parameters
+  enable_file_logging: bool = False
+  log_file_path: str = "logs/app.log"
 
 class ConfigManager:
   """Singleton class to manage the global config."""
@@ -26,6 +31,7 @@ class ConfigManager:
     ibkr_gateway_username: str,
     ibkr_gateway_password: str,
     application_port: int,
+    log_level: str = "INFO",
   ) -> Config:
     """Initialize the global config with CLI parameters."""
     config_kwargs = {}
@@ -33,6 +39,7 @@ class ConfigManager:
     config_kwargs["ibkr_gateway_username"] = ibkr_gateway_username
     config_kwargs["ibkr_gateway_password"] = ibkr_gateway_password
     config_kwargs["application_port"] = application_port
+    config_kwargs["log_level"] = log_level
 
     cls._instance = Config(**config_kwargs)
     return cls._instance
@@ -46,10 +53,12 @@ def init_config(
   ibkr_gateway_username: str,
   ibkr_gateway_password: str,
   application_port: int,
+  log_level: str = "INFO",
 ) -> Config:
   """Initialize the global config with CLI parameters."""
   return ConfigManager.init_config(
     ibkr_gateway_username=ibkr_gateway_username,
     ibkr_gateway_password=ibkr_gateway_password,
     application_port=application_port,
+    log_level=log_level,
   )

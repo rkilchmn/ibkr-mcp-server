@@ -1,15 +1,13 @@
 """Simple entry point for the IBKR MCP Server."""
 
 import argparse
-import logging
 import uvicorn
 
 from app.main import app
 from app.core.config import init_config
+from app.core.setup_logging import setup_logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+setup_logging()
 
 def parse_args() -> argparse.Namespace:
   """Parse command line arguments."""
