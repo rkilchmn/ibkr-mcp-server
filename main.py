@@ -45,6 +45,8 @@ def main() -> None:
     app,
     host="127.0.0.1",
     port=config.application_port,
+    log_level="critical",
+    access_log=False,
   )
 
 if __name__ == "__main__":
