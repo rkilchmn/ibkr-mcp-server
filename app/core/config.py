@@ -4,8 +4,8 @@ from pydantic_settings import BaseSettings
 class Config(BaseSettings):
   """Global configuration for the application."""
 
-  ibkr_gateway_username: str
-  ibkr_gateway_password: str
+  ib_gateway_username: str
+  ib_gateway_password: str
   application_port: int = 8000
   log_level: str = "INFO"
 
@@ -14,9 +14,10 @@ class Config(BaseSettings):
   log_file_path: str = "logs/app.log"
 
   # IBKR Gateway parameters
-  ibkr_gateway_persist: bool = False
-  ibkr_gateway_host: str = "localhost"
-  ibkr_gateway_port: int = 8888
+  ib_gateway_persist: bool = False
+  ib_gateway_host: str = "localhost"
+  ib_gateway_port: int = 8888
+  ib_command_server_port: int = 7462
 
 
 class ConfigManager:

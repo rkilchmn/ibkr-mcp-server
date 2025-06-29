@@ -5,7 +5,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from app.api.endpoints import gateway
-
+from app.api.endpoints.ibkr import ibkr_router
 from app.core.config import get_config
 from app.core.setup_logging import setup_logging
 
@@ -47,7 +47,7 @@ app = FastAPI(
 
 # Include routers
 app.include_router(gateway.router)
-
+app.include_router(ibkr_router)
 
 @app.get("/")
 def read_root() -> dict:
@@ -64,4 +64,6 @@ if __name__ == "__main__":
     app,
     host="127.0.0.1",
     port=config.application_port,
+    log_level=config.log_level,
+    access_log=False,
   )

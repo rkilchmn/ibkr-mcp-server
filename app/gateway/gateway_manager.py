@@ -31,7 +31,7 @@ class IBKRGatewayManager:
     """Stop the IBKR Gateway container."""
     try:
       success = await self.docker_service.stop_gateway(
-        persist=config.ibkr_gateway_persist,
+        persist=config.ib_gateway_persist,
       )
       if success:
         self.is_running = False
