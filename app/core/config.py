@@ -13,6 +13,12 @@ class Config(BaseSettings):
   enable_file_logging: bool = False
   log_file_path: str = "logs/app.log"
 
+  # IBKR Gateway parameters
+  ibkr_gateway_persist: bool = False
+  ibkr_gateway_host: str = "localhost"
+  ibkr_gateway_port: int = 8888
+
+
 class ConfigManager:
   """Singleton class to manage the global config."""
 

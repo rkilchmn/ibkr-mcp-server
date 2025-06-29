@@ -1,10 +1,10 @@
-import asyncio
-import logging
-from typing import Optional, Dict, Any, List
+"""Gateway manager for IBKR TWS Gateway."""
+from typing import Any
 from .docker_service import IBKRGatewayDockerService
+from app.core.setup_logging import logger
+from app.core.config import get_config
 
-logger = logging.getLogger(__name__)
-
+config = get_config()
 
 class IBKRGatewayManager:
   """Manager for IBKR Gateway container and interactions."""
@@ -30,7 +30,9 @@ class IBKRGatewayManager:
   async def stop_gateway(self) -> bool:
     """Stop the IBKR Gateway container."""
     try:
-      success = await self.docker_service.stop_gateway()
+      success = await self.docker_service.stop_gateway(
+        persist=config.ibkr_gateway_persist,
+      )
       if success:
         self.is_running = False
         logger.info("IBKR Gateway stopped successfully")
@@ -44,124 +46,43 @@ class IBKRGatewayManager:
     """Get the current status of the IBKR Gateway."""
     try:
       container_status = await self.docker_service.get_container_status()
-
-      status = {
-        "is_running": self.is_running,
-        "gateway_url": self.gateway_url,
-        "container": container_status
-      }
-
-      # Add health check if container is running
-      if container_status.get("status") == "running":
-        try:
-          import httpx
-          async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(f"{self.gateway_url}/health")
-            status["health"] = {
-              "status": "healthy" if response.status_code == 200 else "unhealthy",
-              "status_code": response.status_code
-            }
-        except Exception as e:
-          status["health"] = {
-            "status": "unreachable",
-            "error": str(e)
-          }
-
-      return status
     except Exception as e:
       logger.error(f"Failed to get gateway status: {e}")
       return {
         "is_running": False,
-        "error": str(e)
+        "error": str(e),
+      }
+    else:
+      return {
+        "is_running": self.is_running,
+        "container": container_status,
       }
 
   async def get_gateway_logs(self, tail: int = 100) -> str:
     """Get the logs from the IBKR Gateway container."""
-    return await self.docker_service.get_container_logs(tail)
+    logs = await self.docker_service.get_container_logs(tail)
+    log_lines = [line.strip() for line in logs.split("\n") if line.strip()]
+    return {"logs": log_lines}
 
-  async def connect_to_ibkr(
-      self,
-      host: str = "127.0.0.1",
-      port: int = 4001,
-      client_id: int = 1) -> bool:
-    """Connect to IBKR TWS/Gateway through the container."""
-    try:
-      if not self.is_running:
-        logger.error("Gateway is not running. Start it first.")
-        return False
-
-      # This would typically involve making API calls to the gateway
-      # to establish connection to IBKR TWS/Gateway
-      logger.info(f"Connecting to IBKR at {host}:{port} with client_id {client_id}")
-
-      # Placeholder for actual connection logic
-      # You would implement the actual IBKR API connection here
-
-      return True
-    except Exception as e:
-      logger.error(f"Failed to connect to IBKR: {e}")
-      return False
-
-  async def disconnect_from_ibkr(self) -> bool:
-    """Disconnect from IBKR TWS/Gateway."""
-    try:
-      logger.info("Disconnecting from IBKR...")
-      # Placeholder for actual disconnection logic
-      return True
-    except Exception as e:
-      logger.error(f"Failed to disconnect from IBKR: {e}")
-      return False
-
-  async def get_account_info(self) -> Dict[str, Any]:
-    """Get account information from IBKR."""
-    try:
-      if not self.is_running:
-        return {"error": "Gateway is not running"}
-
-      # Placeholder for actual account info retrieval
-      # This would make API calls to the gateway to get account data
-
-      return {
-        "account_id": "demo_account",
-        "account_type": "demo",
-        "currency": "USD",
-        "status": "active"
-      }
-    except Exception as e:
-      logger.error(f"Failed to get account info: {e}")
-      return {"error": str(e)}
-
-  async def get_portfolio(self) -> List[Dict[str, Any]]:
-    """Get portfolio positions from IBKR."""
-    try:
-      if not self.is_running:
-        return []
-
-      # Placeholder for actual portfolio retrieval
-      # This would make API calls to the gateway to get portfolio data
-
-      return [
-        {
-          "symbol": "AAPL",
-          "quantity": 100,
-          "market_value": 15000.0,
-          "unrealized_pnl": 500.0
-        }
-      ]
-    except Exception as e:
-      logger.error(f"Failed to get portfolio: {e}")
-      return []
-
-  async def cleanup(self):
+  async def cleanup(self) -> None:
     """Cleanup resources when shutting down."""
     try:
       if self.is_running:
         await self.stop_gateway()
+
+      # Cleanup docker service resources
+      if (hasattr(self, "docker_service") and self.docker_service and
+          hasattr(self.docker_service, "client")):
+        self.docker_service.client.close()
     except Exception as e:
       logger.error(f"Error during cleanup: {e}")
+    finally:
+      self.is_running = False
 
-  def __del__(self):
+  def __del__(self) -> None:
     """Cleanup when the manager is destroyed."""
-    # Don't call async methods in __del__
-    # The cleanup should be called explicitly before destruction
-    pass
+    if self.is_running:
+      logger.warning(
+        "IBKRGatewayManager destroyed while still running. "
+        "Call await manager.cleanup() before destruction.",
+      )
