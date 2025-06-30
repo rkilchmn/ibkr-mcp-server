@@ -17,6 +17,7 @@
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
             uv
+            nodejs_22
           ];
 
           # Environment variables and commands to run when entering the shell.
