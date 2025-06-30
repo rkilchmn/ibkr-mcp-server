@@ -1,6 +1,6 @@
 """Position-related tools."""
 from fastapi.responses import JSONResponse
-from app.api.endpoints.ibkr import ibkr_router, ib_interface
+from app.api.ibkr import ibkr_router, ib_interface
 from app.core.setup_logging import logger
 
 @ibkr_router.get(

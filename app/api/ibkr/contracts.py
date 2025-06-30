@@ -3,7 +3,7 @@
 import json
 from fastapi import Query
 from loguru import logger
-from app.api.endpoints.ibkr import ibkr_router, ib_interface
+from app.api.ibkr import ibkr_router, ib_interface
 
 @ibkr_router.get(
   "/contract_details",

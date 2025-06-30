@@ -1,6 +1,6 @@
 """Scanner-related tools."""
 from fastapi import Query
-from app.api.endpoints.ibkr import ibkr_router, ib_interface
+from app.api.ibkr import ibkr_router, ib_interface
 from app.core.setup_logging import logger
 
 # Module-level query parameter definitions

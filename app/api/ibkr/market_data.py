@@ -1,10 +1,20 @@
 """Contract and options-related tools."""
+from fastapi import Query
 from fastapi.responses import JSONResponse
-from app.api.endpoints.ibkr import ibkr_router, ib_interface
+from app.api.ibkr import ibkr_router, ib_interface
 from app.core.setup_logging import logger
 
-@ibkr_router.post("/tickers")
-async def get_tickers(contract_ids: list[int]) -> str:
+# Module-level query parameter definitions
+CONTRACT_IDS_QUERY = Query(
+  default=None, description="List of contract IDs")
+
+@ibkr_router.get(
+  "/tickers",
+  operation_id="ibkr_get_tickers",
+)
+async def get_tickers(
+  contract_ids: list[int] | None = CONTRACT_IDS_QUERY,
+) -> str:
   """Get tickers for a list of contract IDs.
 
   This function queries the IB TWS to get the tickers for a list of contract IDs.
@@ -32,7 +42,10 @@ async def get_tickers(contract_ids: list[int]) -> str:
   else:
     return JSONResponse(content=tickers, media_type="application/json")
 
-@ibkr_router.post("/filtered_options_chain")
+@ibkr_router.get(
+  "/filtered_options_chain",
+  operation_id="ibkr_get_filtered_options_chain",
+)
 async def get_and_filter_options_chain(
   underlying_symbol: str,
   underlying_sec_type: str,

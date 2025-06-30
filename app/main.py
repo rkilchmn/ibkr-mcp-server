@@ -5,8 +5,8 @@ from fastapi_mcp import FastApiMCP
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from app.api.endpoints import gateway
-from app.api.endpoints.ibkr import ibkr_router
+from app.api import gateway
+from app.api.ibkr import ibkr_router
 from app.core.config import get_config
 from app.core.setup_logging import setup_logging
 
