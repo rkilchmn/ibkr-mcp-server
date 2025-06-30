@@ -1,4 +1,4 @@
-"""MCP server setup."""
+"""Endpoints for the IBKR MCP server."""
 from fastapi import APIRouter
 from app.services.interfaces import IBInterface
 

@@ -57,13 +57,19 @@ class MarketDataClient(IBClient):
       result = util.df(tickers)
       result["contractId"] = result["contract"].apply(lambda x: x.conId)
       result["symbol"] = result["contract"].apply(lambda x: x.localSymbol)
+      result["secType"] = result["contract"].apply(lambda x: x.secType)
       result["last"] = result["last"].astype(float)
       result["bid"] = result["bid"].astype(float)
       result["ask"] = result["ask"].astype(float)
 
       def greek_extraction(ticker: pd.Series) -> dict | None:
         greeks_data = {}
-        if hasattr(ticker, "modelGreeks") and ticker.modelGreeks:
+        # Only extract greeks for options contracts
+        if (
+          ticker.secType == "OPT" and
+          hasattr(ticker, "modelGreeks") and
+          ticker.modelGreeks
+        ):
           greeks_data["model"] = {
             "delta": ticker.modelGreeks.delta,
             "gamma": ticker.modelGreeks.gamma,
@@ -75,11 +81,15 @@ class MarketDataClient(IBClient):
 
       result["greeks"] = result.apply(greek_extraction, axis=1)
 
-      # Check if we got any greeks data
-      has_greeks = any(result["greeks"].apply(lambda x: bool(x)))
+      # Check if we got any greeks data (only for options contracts)
+      options_contracts = result[result["secType"] == "OPT"]
+      has_greeks = False
+      if not options_contracts.empty:
+        has_greeks = any(options_contracts["greeks"].apply(lambda x: bool(x)))
 
-      if not has_greeks:
-        logger.warning("No greeks data received, restarting gateway...")
+      # Only restart if we have options contracts but no greeks data
+      if not options_contracts.empty and not has_greeks:
+        logger.warning("No greeks data for options contracts, restarting gateway...")
         await self.send_command_to_ibc("RESTART")
         await asyncio.sleep(30)
         await self._connect()
@@ -95,19 +105,24 @@ class MarketDataClient(IBClient):
         result = util.df(tickers)
         result["contractId"] = result["contract"].apply(lambda x: x.conId)
         result["symbol"] = result["contract"].apply(lambda x: x.localSymbol)
+        result["secType"] = result["contract"].apply(lambda x: x.secType)
         result["last"] = result["last"].astype(float)
         result["bid"] = result["bid"].astype(float)
         result["ask"] = result["ask"].astype(float)
         result["greeks"] = result.apply(greek_extraction, axis=1)
 
-        # Check if we got greeks data after restart
-        has_greeks = any(result["greeks"].apply(lambda x: bool(x)))
-        if not has_greeks:
+        # Check if we got greeks data after restart (only for options)
+        options_contracts = result[result["secType"] == "OPT"]
+        has_greeks = False
+        if not options_contracts.empty:
+          has_greeks = any(options_contracts["greeks"].apply(lambda x: bool(x)))
+        if not options_contracts.empty and not has_greeks:
           logger.warning("Still no greeks data after gateway restart")
 
       result = result[[
         "contractId",
         "symbol",
+        "secType",
         "last",
         "bid",
         "ask",
@@ -118,7 +133,6 @@ class MarketDataClient(IBClient):
       logger.error("Error getting tickers: {}", str(e))
       raise
     else:
-      logger.info("Tickers: {}", result.to_dict(orient="records"))
       return result.to_dict(orient="records")
 
   async def get_and_filter_options(

@@ -59,6 +59,7 @@ def read_root() -> dict:
     "gateway_endpoints": "/gateway",
   }
 
+# MCP server, attached to the FastAPI app
 mcp = FastApiMCP(app)
 mcp.mount()
 
