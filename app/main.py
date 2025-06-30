@@ -1,6 +1,7 @@
 """Main module for the IBKR MCP Server."""
 
 from fastapi import FastAPI
+from fastapi_mcp import FastApiMCP
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -57,6 +58,9 @@ def read_root() -> dict:
     "docs": "/docs",
     "gateway_endpoints": "/gateway",
   }
+
+mcp = FastApiMCP(app)
+mcp.mount()
 
 if __name__ == "__main__":
   import uvicorn

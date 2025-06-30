@@ -153,16 +153,13 @@ class ContractClient(IBClient):
         for expiry in expirations
         for trading_class in trading_classes
       ]
-
       try:
         contracts = await self.ib.qualifyContractsAsync(*contracts)
-        contracts = util.df(contracts)
-        contracts = contracts[[
-          "conId",
-          "localSymbol",
-        ]]
+        contracts = [c for c in contracts if c is not None]
+        contracts = util.df(contracts, labels=["conId", "localSymbol"])
       except Exception as e:
         logger.debug("Error qualifying contracts: {}", str(e))
+        raise
     except Exception as e:
       logger.error("Error getting options chain: {}", str(e))
       raise

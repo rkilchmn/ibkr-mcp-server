@@ -2,7 +2,10 @@
 from app.api.endpoints.ibkr import ibkr_router, ib_interface
 from app.core.setup_logging import logger
 
-@ibkr_router.get("/scanner/instrument_codes")
+@ibkr_router.get(
+  "/scanner/instrument_codes",
+  operation_id="get_scanner_instrument_codes",
+)
 async def get_scanner_instrument_codes() -> str:
   """Get scanner instrument codes from Interactive Brokers TWS.
 
@@ -12,8 +15,8 @@ async def get_scanner_instrument_codes() -> str:
     str: A formatted string containing the scanner instrument codes or error message
 
   Example:
-      >>> await get_scanner_instrument_codes()
-      "The scanner instrument codes are: ['STK', 'FUT', 'OPT']"
+    >>> get_scanner_instrument_codes()
+    "The scanner instrument codes are: ['STK', 'FUT', 'OPT']"
 
   """
   try:
@@ -24,7 +27,10 @@ async def get_scanner_instrument_codes() -> str:
   else:
     return f"The scanner instrument codes are: {tags}"
 
-@ibkr_router.get("/scanner/location_codes")
+@ibkr_router.get(
+  "/scanner/location_codes",
+  operation_id="get_scanner_location_codes",
+)
 async def get_scanner_location_codes() -> str:
   """Get scanner location codes from Interactive Brokers TWS.
 
@@ -34,8 +40,8 @@ async def get_scanner_location_codes() -> str:
     str: A formatted string containing the scanner location codes or error message
 
   Example:
-      >>> await get_scanner_location_codes()
-      "The scanner location codes are: ['STK.US', 'STK.EU']"
+    >>> get_scanner_location_codes()
+    "The scanner location codes are: ['STK.US', 'STK.EU']"
 
   """
   try:
@@ -46,7 +52,10 @@ async def get_scanner_location_codes() -> str:
   else:
     return f"The scanner location codes are: {tags}"
 
-@ibkr_router.get("/scanner/filter_codes")
+@ibkr_router.get(
+  "/scanner/filter_codes",
+  operation_id="get_scanner_filter_codes",
+)
 async def get_scanner_filter_codes() -> str:
   """Get scanner filter codes from Interactive Brokers TWS.
 
@@ -56,8 +65,8 @@ async def get_scanner_filter_codes() -> str:
     str: A formatted string containing the scanner filter codes or error message
 
   Example:
-      >>> await get_scanner_filter_codes()
-      "The scanner filter codes are: ['priceAbove', 'marketCapAbove']"
+    >>> get_scanner_filter_codes()
+    "The scanner filter codes are: ['priceAbove', 'marketCapAbove']"
 
   """
   try:
@@ -68,7 +77,10 @@ async def get_scanner_filter_codes() -> str:
   else:
     return f"The scanner filter codes are: {tags}"
 
-@ibkr_router.post("/scanner/results")
+@ibkr_router.post(
+  "/scanner/results",
+  operation_id="get_scanner_results",
+)
 async def get_scanner_results(
   instrument_code: str,
   location_code: str,
@@ -89,8 +101,12 @@ async def get_scanner_results(
     str: A formatted string containing the scanner results or error message
 
   Example:
-      POST /scanner/results?instrument_code=STK&location_code=STK.US
-      ["priceAbove=10", "marketCapAbove=1000000000"]
+    >>> get_scanner_results(
+    ...     instrument_code="STK",
+    ...     location_code="STK.US",
+    ...     filter_codes=["priceAbove=10", "marketCapAbove=1000000000"],
+    ... )
+    "I found 2 stocks matching the scanner parameters: ['AAPL', 'GOOG']"
 
   """
   try:
