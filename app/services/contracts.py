@@ -1,8 +1,8 @@
 """Contract operations."""
 from ib_async import util
 from ib_async.contract import Contract, Option
-from loguru import logger
 
+from app.core.setup_logging import logger
 from .client import IBClient
 
 class ContractClient(IBClient):
@@ -84,7 +84,7 @@ class ContractClient(IBClient):
       logger.error("Error getting contract details: {}", str(e))
       raise
     else:
-      return contracts.to_json(orient="records")
+      return contracts.to_dict(orient="records")
 
   async def get_options_chain(
     self,
@@ -167,4 +167,4 @@ class ContractClient(IBClient):
       logger.error("Error getting options chain: {}", str(e))
       raise
     else:
-      return contracts.to_json(orient="records")
+      return contracts.to_dict(orient="records")

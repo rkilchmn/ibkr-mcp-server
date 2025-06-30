@@ -51,7 +51,7 @@ app.include_router(ibkr_router)
 
 @app.get("/")
 def read_root() -> dict:
-  """Read the root endpoint."""
+  """Return the root endpoint."""
   return {
     "message": "Welcome to the IBKR MCP Server",
     "docs": "/docs",

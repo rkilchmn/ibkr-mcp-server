@@ -30,6 +30,8 @@ class MarketDataClient(IBClient):
     ) -> list[str]:
     """Get tickers for a list of contract IDs.
 
+    TODO: add check for the stock price, greek is not needed in this case.
+
     Args:
         contract_ids: List of contract IDs to get tickers for.
 

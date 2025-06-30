@@ -1,10 +1,10 @@
 """Base IB client connection handling."""
 import asyncio
 import datetime as dt
-from loguru import logger
 from ib_async import IB
 
 from app.core.config import get_config
+from app.core.setup_logging import logger
 
 class IBClient:
   """Base IB client connection handling. No public methods."""

@@ -9,6 +9,6 @@ ib_interface = IBInterface()
 
 # Import all endpoints
 from .positions import *
+from .contracts import *
+from .scanner import *
 from .market_data import *
-# from .contracts import *
-# from .scanner import *

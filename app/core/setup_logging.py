@@ -36,7 +36,7 @@ def setup_logging() -> None:
   logging.getLogger("uvicorn").setLevel(logging.CRITICAL)
   logging.getLogger("uvicorn.access").setLevel(logging.CRITICAL)
   logging.getLogger("uvicorn.error").setLevel(logging.CRITICAL)
-  logging.getLogger("fastapi").setLevel(logging.CRITICAL)
+  logging.getLogger("fastapi").setLevel(logging.DEBUG)
   logging.getLogger("asyncio").setLevel(logging.CRITICAL)
 
   return logger

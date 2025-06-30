@@ -1,8 +1,8 @@
 """Scanner-related tools."""
-from loguru import logger
-from src.servers.ibkr.tools import ibkr, ib_interface
+from app.api.endpoints.ibkr import ibkr_router, ib_interface
+from app.core.setup_logging import logger
 
-@ibkr.tool(name="get_scanner_instrument_codes")
+@ibkr_router.get("/scanner/instrument_codes")
 async def get_scanner_instrument_codes() -> str:
   """Get scanner instrument codes from Interactive Brokers TWS.
 
@@ -24,7 +24,7 @@ async def get_scanner_instrument_codes() -> str:
   else:
     return f"The scanner instrument codes are: {tags}"
 
-@ibkr.tool(name="get_scanner_location_codes")
+@ibkr_router.get("/scanner/location_codes")
 async def get_scanner_location_codes() -> str:
   """Get scanner location codes from Interactive Brokers TWS.
 
@@ -46,7 +46,7 @@ async def get_scanner_location_codes() -> str:
   else:
     return f"The scanner location codes are: {tags}"
 
-@ibkr.tool(name="get_scanner_filter_codes")
+@ibkr_router.get("/scanner/filter_codes")
 async def get_scanner_filter_codes() -> str:
   """Get scanner filter codes from Interactive Brokers TWS.
 
@@ -68,7 +68,7 @@ async def get_scanner_filter_codes() -> str:
   else:
     return f"The scanner filter codes are: {tags}"
 
-@ibkr.tool(name="get_scanner_results")
+@ibkr_router.post("/scanner/results")
 async def get_scanner_results(
   instrument_code: str,
   location_code: str,
@@ -82,19 +82,15 @@ async def get_scanner_results(
   Args:
     instrument_code (str): Type of instrument to scan for (e.g., 'STK', 'FUT', 'OPT')
     location_code (str): Geographic location/market code (e.g., 'STK.US', 'STK.EU')
-    filter_codes (list[str]): List of filter parameters in 'parameter=value' format,
+    filter_codes (List[str]): List of filter parameters in 'parameter=value' format,
       e.g. ['priceAbove=10', 'marketCapAbove=1000000000']
 
   Returns:
     str: A formatted string containing the scanner results or error message
 
   Example:
-      >>> get_scanner_results(
-      ...     instrumentCode='STK',
-      ...     locationCode='STK.US',
-      ...     filterCodes=['priceAbove=10', 'marketCapAbove=1000000000']
-      ... )
-      "I have found 25 stocks that match the scanner parameters: ['AAPL', 'MSFT', ...]"
+      POST /scanner/results?instrument_code=STK&location_code=STK.US
+      ["priceAbove=10", "marketCapAbove=1000000000"]
 
   """
   try:

@@ -1,6 +1,7 @@
 """Contract and options-related tools."""
-from loguru import logger
+from fastapi.responses import JSONResponse
 from app.api.endpoints.ibkr import ibkr_router, ib_interface
+from app.core.setup_logging import logger
 
 @ibkr_router.post("/tickers")
 async def get_tickers(contract_ids: list[int]) -> str:
@@ -29,8 +30,7 @@ async def get_tickers(contract_ids: list[int]) -> str:
     logger.error("Error in get_tickers: {!s}", str(e))
     return "Error getting tickers"
   else:
-    logger.info("Tickers: {}", tickers)
-    return tickers
+    return JSONResponse(content=tickers, media_type="application/json")
 
 @ibkr_router.post("/filtered_options_chain")
 async def get_and_filter_options_chain(

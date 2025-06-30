@@ -1,10 +1,9 @@
 """Scanner operations."""
-from loguru import logger
-
 from defusedxml import ElementTree
 from ib_async.objects import ScannerSubscription, TagValue
 
 from .client import IBClient
+from app.core.setup_logging import logger
 
 class ScannerClient(IBClient):
   """Scanner operations.
