@@ -60,7 +60,7 @@ def read_root() -> dict:
   }
 
 # MCP server, attached to the FastAPI app
-mcp = FastApiMCP(app)
+mcp = FastApiMCP(app, exclude_tags=["gateway"])
 mcp.mount()
 
 if __name__ == "__main__":

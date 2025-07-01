@@ -7,7 +7,7 @@ from app.api.ibkr import ibkr_router, ib_interface
 
 @ibkr_router.get(
   "/contract_details",
-  operation_id="ibkr_get_contract_details",
+  operation_id="get_contract_details",
 )
 async def get_contract_details(
   symbol: str,
@@ -55,7 +55,7 @@ async def get_contract_details(
 
 @ibkr_router.get(
   "/options_chain",
-  operation_id="ibkr_get_options_chain",
+  operation_id="get_options_chain",
 )
 async def get_options_chain(
   underlying_symbol: str,

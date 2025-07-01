@@ -5,7 +5,7 @@ from app.core.setup_logging import logger
 
 @ibkr_router.get(
   "/positions",
-  operation_id="ibkr_get_positions",
+  operation_id="get_positions",
 )
 async def get_positions() -> list[dict]:
   """Get positions for all accounts.

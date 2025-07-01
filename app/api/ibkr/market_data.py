@@ -10,7 +10,7 @@ CONTRACT_IDS_QUERY = Query(
 
 @ibkr_router.get(
   "/tickers",
-  operation_id="ibkr_get_tickers",
+  operation_id="get_tickers",
 )
 async def get_tickers(
   contract_ids: list[int] | None = CONTRACT_IDS_QUERY,
@@ -44,7 +44,7 @@ async def get_tickers(
 
 @ibkr_router.get(
   "/filtered_options_chain",
-  operation_id="ibkr_get_filtered_options_chain",
+  operation_id="get_filtered_options_chain",
 )
 async def get_and_filter_options_chain(
   underlying_symbol: str,

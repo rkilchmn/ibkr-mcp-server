@@ -9,7 +9,7 @@ FILTER_CODES_QUERY = Query(
 
 @ibkr_router.get(
   "/scanner/instrument_codes",
-  operation_id="ibkr_get_scanner_instrument_codes",
+  operation_id="get_scanner_instrument_codes",
 )
 async def get_scanner_instrument_codes() -> str:
   """Get scanner instrument codes from Interactive Brokers TWS.
@@ -34,7 +34,7 @@ async def get_scanner_instrument_codes() -> str:
 
 @ibkr_router.get(
   "/scanner/location_codes",
-  operation_id="ibkr_get_scanner_location_codes",
+  operation_id="get_scanner_location_codes",
 )
 async def get_scanner_location_codes() -> str:
   """Get scanner location codes from Interactive Brokers TWS.
@@ -59,7 +59,7 @@ async def get_scanner_location_codes() -> str:
 
 @ibkr_router.get(
   "/scanner/filter_codes",
-  operation_id="ibkr_get_scanner_filter_codes",
+  operation_id="get_scanner_filter_codes",
 )
 async def get_scanner_filter_codes() -> str:
   """Get scanner filter codes from Interactive Brokers TWS.
@@ -84,7 +84,7 @@ async def get_scanner_filter_codes() -> str:
 
 @ibkr_router.get(
   "/scanner/results",
-  operation_id="ibkr_get_scanner_results",
+  operation_id="get_scanner_results",
 )
 async def get_scanner_results(
   instrument_code: str,
