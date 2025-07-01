@@ -219,8 +219,22 @@ class MarketDataClient(IBClient):
         logger.warning("No options found matching the criteria")
         return []
 
-      # Return the filtered data directly (already in the correct format)
-      return filtered_data.to_dict(orient="records")
+      # Convert filtered DataFrame to list of Pydantic models
+      filtered_tickers = []
+      for _, row in filtered_data.iterrows():
+        ticker_data = TickerData(
+          contractId=row["contractId"],
+          symbol=row["symbol"],
+          secType=row["secType"],
+          last=row["last"] if pd.notna(row["last"]) else None,
+          bid=row["bid"] if pd.notna(row["bid"]) else None,
+          ask=row["ask"] if pd.notna(row["ask"]) else None,
+          greeks=row["greeks"],
+        )
+        filtered_tickers.append(ticker_data)
+
+      # Return as list of dictionaries
+      return [ticker.dict() for ticker in filtered_tickers]
 
     except Exception as e:
       logger.error("Error filtering options: {}", str(e))
