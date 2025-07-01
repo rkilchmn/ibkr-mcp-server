@@ -5,7 +5,9 @@ from app.core.setup_logging import logger
 
 # Module-level query parameter definitions
 FILTER_CODES_QUERY = Query(
-  default=None, description="List of filter parameters in 'parameter=value' format")
+  default=None,
+  description="List of filter parameters in 'parameter=value' format",
+)
 
 @ibkr_router.get(
   "/scanner/instrument_codes",
@@ -32,10 +34,7 @@ async def get_scanner_instrument_codes() -> str:
   else:
     return f"The scanner instrument codes are: {tags}"
 
-@ibkr_router.get(
-  "/scanner/location_codes",
-  operation_id="get_scanner_location_codes",
-)
+@ibkr_router.get("/scanner/location_codes", operation_id="get_scanner_location_codes")
 async def get_scanner_location_codes() -> str:
   """Get scanner location codes from Interactive Brokers TWS.
 
@@ -57,10 +56,7 @@ async def get_scanner_location_codes() -> str:
   else:
     return f"The scanner location codes are: {tags}"
 
-@ibkr_router.get(
-  "/scanner/filter_codes",
-  operation_id="get_scanner_filter_codes",
-)
+@ibkr_router.get("/scanner/filter_codes", operation_id="get_scanner_filter_codes")
 async def get_scanner_filter_codes() -> str:
   """Get scanner filter codes from Interactive Brokers TWS.
 
@@ -82,10 +78,7 @@ async def get_scanner_filter_codes() -> str:
   else:
     return f"The scanner filter codes are: {tags}"
 
-@ibkr_router.get(
-  "/scanner/results",
-  operation_id="get_scanner_results",
-)
+@ibkr_router.get("/scanner/results", operation_id="get_scanner_results")
 async def get_scanner_results(
   instrument_code: str,
   location_code: str,

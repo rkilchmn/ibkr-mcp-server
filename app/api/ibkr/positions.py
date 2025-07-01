@@ -3,10 +3,7 @@ from fastapi.responses import JSONResponse
 from app.api.ibkr import ibkr_router, ib_interface
 from app.core.setup_logging import logger
 
-@ibkr_router.get(
-  "/positions",
-  operation_id="get_positions",
-)
+@ibkr_router.get("/positions", operation_id="get_positions")
 async def get_positions() -> list[dict]:
   """Get positions for all accounts.
 

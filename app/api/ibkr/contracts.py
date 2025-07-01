@@ -5,16 +5,16 @@ from fastapi import Query
 from loguru import logger
 from app.api.ibkr import ibkr_router, ib_interface
 
-@ibkr_router.get(
-  "/contract_details",
-  operation_id="get_contract_details",
-)
+# Module-level query parameter definitions
+OPTIONS_QUERY = Query(default=None, description="Optional parameters as JSON string")
+FILTERS_QUERY = Query(default=None, description="Filters as JSON string")
+
+@ibkr_router.get("/contract_details", operation_id="get_contract_details")
 async def get_contract_details(
   symbol: str,
   sec_type: str,
   exchange: str,
-  options: str | None = Query(
-    default=None, description="Optional parameters as JSON string"),
+  options: str | None = OPTIONS_QUERY,
 ) -> str:
   """Get contract details for a given symbol.
 
@@ -53,16 +53,12 @@ async def get_contract_details(
   else:
     return f"The contract details for the symbol are: {details}"
 
-@ibkr_router.get(
-  "/options_chain",
-  operation_id="get_options_chain",
-)
+@ibkr_router.get("/options_chain", operation_id="get_options_chain")
 async def get_options_chain(
   underlying_symbol: str,
   underlying_sec_type: str,
   underlying_con_id: int,
-  filters: str | None = Query(
-    default=None, description="Filters as JSON string"),
+  filters: str | None = FILTERS_QUERY,
 ) -> str:
   """Get options chain for a given underlying contract.
 

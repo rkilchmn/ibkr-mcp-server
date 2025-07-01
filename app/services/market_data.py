@@ -9,6 +9,7 @@ from ib_async.contract import Contract
 from .client import IBClient
 from .contracts import ContractClient
 from app.core.setup_logging import logger
+from app.models import TickerData, GreeksData
 
 class MarketDataClient(IBClient):
   """Market data operations."""
@@ -24,13 +25,57 @@ class MarketDataClient(IBClient):
       nyse = ecals.get_calendar("NYSE")
       return nyse.is_trading_minute(dt.datetime.now(dt.UTC))
 
+  def _process_tickers(self, tickers: list[dict]) -> list[TickerData]:
+    """Process tickers to extract required fields."""
+    result = util.df(tickers)
+    result["contractId"] = result["contract"].apply(lambda x: x.conId)
+    result["symbol"] = result["contract"].apply(lambda x: x.localSymbol)
+    result["secType"] = result["contract"].apply(lambda x: x.secType)
+    result["last"] = result["last"].astype(float)
+    result["bid"] = result["bid"].astype(float)
+    result["ask"] = result["ask"].astype(float)
+    result["greeks"] = result.apply(self._greek_extraction, axis=1)
+
+    # Convert DataFrame to list of Pydantic models
+    ticker_list = []
+    for _, row in result.iterrows():
+      ticker_data = TickerData(
+        contractId=row["contractId"],
+        symbol=row["symbol"],
+        secType=row["secType"],
+        last=row["last"] if pd.notna(row["last"]) else None,
+        bid=row["bid"] if pd.notna(row["bid"]) else None,
+        ask=row["ask"] if pd.notna(row["ask"]) else None,
+        greeks=row["greeks"],
+      )
+      ticker_list.append(ticker_data)
+
+    return ticker_list
+
+  def _greek_extraction(self, ticker: pd.Series) -> GreeksData | None:
+    """Extract greeks from a ticker.
+
+    Only extract greeks for options contracts, use modelGreeks.
+    """
+    if (
+      ticker.secType == "OPT" and
+      hasattr(ticker, "modelGreeks") and
+      ticker.modelGreeks
+    ):
+      return GreeksData(
+        delta=ticker.modelGreeks.delta,
+        gamma=ticker.modelGreeks.gamma,
+        vega=ticker.modelGreeks.vega,
+        theta=ticker.modelGreeks.theta,
+        impliedVol=ticker.modelGreeks.impliedVol,
+      )
+    return None
+
   async def get_tickers(
       self,
       contract_ids: list[int],
-    ) -> list[str]:
+    ) -> list[dict]:
     """Get tickers for a list of contract IDs.
-
-    TODO: add check for the stock price, greek is not needed in this case.
 
     Args:
         contract_ids: List of contract IDs to get tickers for.
@@ -54,41 +99,16 @@ class MarketDataClient(IBClient):
       tickers = await self.ib.reqTickersAsync(*qualified_contracts)
 
       # Process tickers
-      result = util.df(tickers)
-      result["contractId"] = result["contract"].apply(lambda x: x.conId)
-      result["symbol"] = result["contract"].apply(lambda x: x.localSymbol)
-      result["secType"] = result["contract"].apply(lambda x: x.secType)
-      result["last"] = result["last"].astype(float)
-      result["bid"] = result["bid"].astype(float)
-      result["ask"] = result["ask"].astype(float)
-
-      def greek_extraction(ticker: pd.Series) -> dict | None:
-        greeks_data = {}
-        # Only extract greeks for options contracts
-        if (
-          ticker.secType == "OPT" and
-          hasattr(ticker, "modelGreeks") and
-          ticker.modelGreeks
-        ):
-          greeks_data["model"] = {
-            "delta": ticker.modelGreeks.delta,
-            "gamma": ticker.modelGreeks.gamma,
-            "vega": ticker.modelGreeks.vega,
-            "theta": ticker.modelGreeks.theta,
-            "impliedVol": ticker.modelGreeks.impliedVol,
-          }
-        return greeks_data
-
-      result["greeks"] = result.apply(greek_extraction, axis=1)
+      result = self._process_tickers(tickers)
 
       # Check if we got any greeks data (only for options contracts)
-      options_contracts = result[result["secType"] == "OPT"]
+      options_contracts = [ticker for ticker in result if ticker.secType == "OPT"]
       has_greeks = False
-      if not options_contracts.empty:
-        has_greeks = any(options_contracts["greeks"].apply(lambda x: bool(x)))
+      if options_contracts:
+        has_greeks = any(ticker.greeks for ticker in options_contracts)
 
       # Only restart if we have options contracts but no greeks data
-      if not options_contracts.empty and not has_greeks:
+      if options_contracts and not has_greeks:
         logger.warning("No greeks data for options contracts, restarting gateway...")
         await self.send_command_to_ibc("RESTART")
         await asyncio.sleep(30)
@@ -102,38 +122,22 @@ class MarketDataClient(IBClient):
         tickers = await self.ib.reqTickersAsync(*qualified_contracts)
 
         # Process tickers again
-        result = util.df(tickers)
-        result["contractId"] = result["contract"].apply(lambda x: x.conId)
-        result["symbol"] = result["contract"].apply(lambda x: x.localSymbol)
-        result["secType"] = result["contract"].apply(lambda x: x.secType)
-        result["last"] = result["last"].astype(float)
-        result["bid"] = result["bid"].astype(float)
-        result["ask"] = result["ask"].astype(float)
-        result["greeks"] = result.apply(greek_extraction, axis=1)
-
+        result = self._process_tickers(tickers)
         # Check if we got greeks data after restart (only for options)
-        options_contracts = result[result["secType"] == "OPT"]
+        options_contracts = [ticker for ticker in result if ticker.secType == "OPT"]
         has_greeks = False
-        if not options_contracts.empty:
-          has_greeks = any(options_contracts["greeks"].apply(lambda x: bool(x)))
-        if not options_contracts.empty and not has_greeks:
+        if options_contracts:
+          has_greeks = any(ticker.greeks for ticker in options_contracts)
+        if options_contracts and not has_greeks:
           logger.warning("Still no greeks data after gateway restart")
 
-      result = result[[
-        "contractId",
-        "symbol",
-        "secType",
-        "last",
-        "bid",
-        "ask",
-        "greeks",
-      ]]
+      result_dict = [ticker.dict() for ticker in result]
 
     except Exception as e:
       logger.error("Error getting tickers: {}", str(e))
       raise
     else:
-      return result.to_dict(orient="records")
+      return result_dict
 
   async def get_and_filter_options(
       self,
@@ -168,31 +172,34 @@ class MarketDataClient(IBClient):
       await self._connect()  # Connect once for both operations
 
       # Get options chain
-      options_chain_json = await self.contract_client.get_options_chain(
+      options_chain = await self.contract_client.get_options_chain(
         underlying_symbol,
         underlying_sec_type,
         underlying_con_id,
         filters,
       )
-      options_chain = pd.read_json(options_chain_json)
+      options_chain_df = pd.DataFrame(options_chain)
 
       # Get market data for all options
-      market_data_json = await self.get_tickers(options_chain["conId"].tolist())
-      market_data = pd.read_json(market_data_json)
+      market_data = await self.get_tickers(options_chain_df["conId"].tolist())
 
-      if market_data.empty:
+      if not market_data:
         logger.warning("No market data available for options")
         return []
 
+      # Convert to DataFrame for filtering
+      market_data_df = pd.DataFrame(market_data)
+
       # Apply criteria filters
-      filtered_data = market_data.copy()
+      filtered_data = market_data_df.copy()
+      logger.info("Filtered data: {}", filtered_data)
 
       # Apply delta range if specified
       if criteria and ("min_delta" in criteria or "max_delta" in criteria):
         # Filter out rows with missing greeks data first
         filtered_data = filtered_data[
           filtered_data["greeks"].apply(
-            lambda x: bool(x and "model" in x and x["model"].get("delta") is not None),
+            lambda x: bool(x and x.get("delta") is not None),
           )
         ]
 
@@ -201,9 +208,9 @@ class MarketDataClient(IBClient):
           filtered_data["greeks"].apply(
             lambda x: (
               ("min_delta" not in criteria or
-                x["model"]["delta"] >= criteria["min_delta"]) and
+                x["delta"] >= criteria["min_delta"]) and
               ("max_delta" not in criteria or
-                x["model"]["delta"] <= criteria["max_delta"])
+                x["delta"] <= criteria["max_delta"])
             ),
           )
         ]
@@ -212,7 +219,7 @@ class MarketDataClient(IBClient):
         logger.warning("No options found matching the criteria")
         return []
 
-      # Return all matching options
+      # Return the filtered data directly (already in the correct format)
       return filtered_data.to_dict(orient="records")
 
     except Exception as e:

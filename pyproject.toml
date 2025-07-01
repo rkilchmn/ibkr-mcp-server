@@ -38,6 +38,7 @@ ignore = [
   "S301",
   "PLR2004",
   "F403",
+  "N815", # mixed case in class variables
   "E402", # module level import not at top of file
   "BLE001", # blind exceptions
 ]
