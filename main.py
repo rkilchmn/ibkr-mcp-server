@@ -3,22 +3,18 @@
 import argparse
 import uvicorn
 
-from app.main import app
 from app.core.config import init_config
-from app.core.setup_logging import setup_logging
-
-setup_logging()
 
 def parse_args() -> argparse.Namespace:
   """Parse command line arguments."""
   parser = argparse.ArgumentParser(description="IBKR MCP Server")
   parser.add_argument(
-    "--ibkr-gateway-username",
+    "--ib-gateway-username",
     required=True,
     help="IBKR Gateway username",
   )
   parser.add_argument(
-    "--ibkr-gateway-password",
+    "--ib-gateway-password",
     required=True,
     help="IBKR Gateway password",
   )
@@ -37,10 +33,11 @@ def main() -> None:
   # Initialize global config with CLI parameters
   config = init_config(
     application_port=args.port,
-    ibkr_gateway_username=args.ibkr_gateway_username,
-    ibkr_gateway_password=args.ibkr_gateway_password,
+    ib_gateway_username=args.ib_gateway_username,
+    ib_gateway_password=args.ib_gateway_password,
   )
 
+  from app.main import app # noqa: PLC0415
   uvicorn.run(
     app,
     host="127.0.0.1",

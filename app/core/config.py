@@ -35,16 +35,16 @@ class ConfigManager:
   @classmethod
   def init_config(
     cls,
-    ibkr_gateway_username: str,
-    ibkr_gateway_password: str,
+    ib_gateway_username: str,
+    ib_gateway_password: str,
     application_port: int,
     log_level: str = "INFO",
   ) -> Config:
     """Initialize the global config with CLI parameters."""
     config_kwargs = {}
 
-    config_kwargs["ibkr_gateway_username"] = ibkr_gateway_username
-    config_kwargs["ibkr_gateway_password"] = ibkr_gateway_password
+    config_kwargs["ib_gateway_username"] = ib_gateway_username
+    config_kwargs["ib_gateway_password"] = ib_gateway_password
     config_kwargs["application_port"] = application_port
     config_kwargs["log_level"] = log_level
 
@@ -57,15 +57,15 @@ def get_config() -> Config:
   return ConfigManager.get_config()
 
 def init_config(
-  ibkr_gateway_username: str,
-  ibkr_gateway_password: str,
+  ib_gateway_username: str,
+  ib_gateway_password: str,
   application_port: int,
   log_level: str = "INFO",
 ) -> Config:
   """Initialize the global config with CLI parameters."""
   return ConfigManager.init_config(
-    ibkr_gateway_username=ibkr_gateway_username,
-    ibkr_gateway_password=ibkr_gateway_password,
+    ib_gateway_username=ib_gateway_username,
+    ib_gateway_password=ib_gateway_password,
     application_port=application_port,
     log_level=log_level,
   )

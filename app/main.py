@@ -7,10 +7,8 @@ from contextlib import asynccontextmanager
 
 from app.api import gateway
 from app.api.ibkr import ibkr_router
-from app.core.config import get_config
 from app.core.setup_logging import setup_logging
 
-config = get_config()
 logger = setup_logging()
 
 @asynccontextmanager
@@ -62,13 +60,3 @@ def read_root() -> dict:
 # MCP server, attached to the FastAPI app
 mcp = FastApiMCP(app, exclude_tags=["gateway"])
 mcp.mount()
-
-if __name__ == "__main__":
-  import uvicorn
-  uvicorn.run(
-    app,
-    host="127.0.0.1",
-    port=config.application_port,
-    log_level=config.log_level,
-    access_log=False,
-  )
