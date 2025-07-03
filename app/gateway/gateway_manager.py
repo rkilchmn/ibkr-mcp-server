@@ -20,7 +20,7 @@ class IBKRGatewayManager:
       success = await self.docker_service.start_gateway()
       if success:
         self.is_running = True
-        logger.info("IBKR Gateway started successfully")
+        logger.debug("IBKR Gateway started successfully")
     except Exception:
       logger.exception("Failed to start gateway")
       return False
@@ -35,7 +35,7 @@ class IBKRGatewayManager:
       )
       if success:
         self.is_running = False
-        logger.info("IBKR Gateway stopped successfully")
+        logger.debug("IBKR Gateway stopped successfully")
     except Exception:
       logger.exception("Failed to stop gateway")
       return False

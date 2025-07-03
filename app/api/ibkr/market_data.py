@@ -48,11 +48,16 @@ async def get_tickers(
 
   """
   try:
+    logger.debug(
+      "Getting tickers for contract IDs: {contract_ids}",
+      contract_ids=contract_ids,
+    )
     tickers = await ib_interface.get_tickers(contract_ids)
   except Exception as e:
     logger.error("Error in get_tickers: {!s}", str(e))
     return []
   else:
+    logger.debug("Tickers: {tickers}", tickers=tickers)
     return tickers
 
 @ibkr_router.get(
@@ -106,6 +111,10 @@ async def get_and_filter_options_chain(
 
   """
   try:
+    logger.debug(
+      "Getting and filtering options chain for symbol: {symbol}",
+      symbol=underlying_symbol,
+    )
     # Parse JSON strings to dictionaries
     filters_dict = json.loads(filters) if filters else None
     criteria_dict = json.loads(criteria) if criteria else None
@@ -124,4 +133,8 @@ async def get_and_filter_options_chain(
     logger.error("Error in filter_options: {!s}", str(e))
     return []
   else:
+    logger.debug(
+      "Filtered options: {filtered_options}",
+      filtered_options=filtered_options,
+    )
     return filtered_options

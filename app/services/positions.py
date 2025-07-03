@@ -40,5 +40,4 @@ class PositionClient(IBClient):
       logger.error("Error getting positions: {}", str(e))
       raise
     else:
-      logger.debug("Positions: {}", positions.to_dict(orient="records"))
       return positions.to_dict(orient="records")

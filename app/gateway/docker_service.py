@@ -57,7 +57,7 @@ class IBKRGatewayDockerService:
       try:
         existing_container = self.client.containers.get(self.container_name)
         if existing_container.status == "running":
-          logger.info(f"Container {self.container_name} is already running")
+          logger.debug(f"Container {self.container_name} is already running")
           self.container = existing_container
           return True
         existing_container.remove()
@@ -78,7 +78,7 @@ class IBKRGatewayDockerService:
       }
 
       # Start the container
-      logger.info("Starting IBKR Gateway container...")
+      logger.debug("Starting IBKR Gateway container...")
       self.container = self.client.containers.run(**container_config)
 
       # Wait for container to be ready
@@ -90,7 +90,7 @@ class IBKRGatewayDockerService:
       logger.exception("Failed to start IBKR Gateway container")
       return False
     else:
-      logger.info("IBKR Gateway container started successfully")
+      logger.debug("IBKR Gateway container started successfully")
       return True
 
   async def health_check(self) -> bool:
@@ -128,7 +128,7 @@ class IBKRGatewayDockerService:
         return False
       await asyncio.sleep(2)
       timer += 2
-    logger.info(f"IBKR Gateway container is ready after {timer} seconds")
+    logger.debug(f"IBKR Gateway container is ready after {timer} seconds")
     return True
 
   async def get_container_status(self) -> dict[str, Any]:
@@ -201,7 +201,7 @@ class IBKRGatewayDockerService:
   async def stop_gateway(self, *, persist: bool = False) -> bool:
     """Stop the IBKR Gateway container."""
     if persist:
-      logger.info("Persisting IBKR Gateway container")
+      logger.debug("Persisting IBKR Gateway container")
       return True
 
     try:

@@ -158,7 +158,7 @@ class ContractClient(IBClient):
         contracts = [c for c in contracts if c is not None]
         contracts = util.df(contracts, labels=["conId", "localSymbol"])
       except Exception as e:
-        logger.debug("Error qualifying contracts: {}", str(e))
+        logger.warning("Error qualifying contracts: {}", str(e))
         raise
     except Exception as e:
       logger.error("Error getting options chain: {}", str(e))

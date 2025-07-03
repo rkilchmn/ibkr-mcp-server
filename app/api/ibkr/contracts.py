@@ -40,6 +40,7 @@ async def get_contract_details(
 
   """
   try:
+    logger.debug("Getting contract details for symbol: {symbol}", symbol=symbol)
     options_dict = json.loads(options) if options else {}
     details = await ib_interface.get_contract_details(
       symbol=symbol,
@@ -51,6 +52,7 @@ async def get_contract_details(
     logger.error("Error in get_contract_details: {!s}", str(e))
     return "Error getting contract details"
   else:
+    logger.debug("Contract details: {details}", details=details)
     return f"The contract details for the symbol are: {details}"
 
 @ibkr_router.get("/options_chain", operation_id="get_options_chain")
@@ -102,6 +104,7 @@ async def get_options_chain(
 
   """
   try:
+    logger.debug("Getting options chain for symbol: {symbol}", symbol=underlying_symbol)
     filters_dict = json.loads(filters) if filters else {}
     options_chain = await ib_interface.get_options_chain(
       underlying_symbol,
@@ -113,4 +116,5 @@ async def get_options_chain(
     logger.error("Error in get_options_chain: {!s}", str(e))
     return "Error getting options chain"
   else:
+    logger.debug("Options chain: {options_chain}", options_chain=options_chain)
     return f"The available options contracts are: {options_chain}"

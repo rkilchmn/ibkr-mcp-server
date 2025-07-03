@@ -27,11 +27,13 @@ async def get_scanner_instrument_codes() -> str:
 
   """
   try:
+    logger.debug("Getting scanner instrument codes")
     tags = await ib_interface.get_scanner_instrument_codes()
   except Exception as e:
     logger.error("Error in get_scanner_instrument_codes: {!s}", str(e))
     return "Error getting scanner instrument codes"
   else:
+    logger.debug("Scanner instrument codes: {tags}", tags=tags)
     return f"The scanner instrument codes are: {tags}"
 
 @ibkr_router.get("/scanner/location_codes", operation_id="get_scanner_location_codes")
@@ -49,11 +51,13 @@ async def get_scanner_location_codes() -> str:
 
   """
   try:
+    logger.debug("Getting scanner location codes")
     tags = await ib_interface.get_scanner_location_codes()
   except Exception as e:
     logger.error("Error in get_scanner_location_codes: {!s}", str(e))
     return "Error getting scanner location codes"
   else:
+    logger.debug("Scanner location codes: {tags}", tags=tags)
     return f"The scanner location codes are: {tags}"
 
 @ibkr_router.get("/scanner/filter_codes", operation_id="get_scanner_filter_codes")
@@ -71,11 +75,13 @@ async def get_scanner_filter_codes() -> str:
 
   """
   try:
+    logger.debug("Getting scanner filter codes")
     tags = await ib_interface.get_scanner_filter_codes()
   except Exception as e:
     logger.error("Error in get_scanner_filter_codes: {!s}", str(e))
     return "Error getting scanner filter codes"
   else:
+    logger.debug("Scanner filter codes: {tags}", tags=tags)
     return f"The scanner filter codes are: {tags}"
 
 @ibkr_router.get("/scanner/results", operation_id="get_scanner_results")
@@ -108,6 +114,13 @@ async def get_scanner_results(
 
   """
   try:
+    logger.debug(
+      f"""
+      Getting scanner results for instrument code: {instrument_code},
+      location code: {location_code},
+      filter codes: {filter_codes}
+      """,
+    )
     results = await ib_interface.get_scanner_results(
       instrument_code,
       location_code,
@@ -117,4 +130,5 @@ async def get_scanner_results(
     logger.error("Error in get_scanner_results: {!s}", str(e))
     return "Error getting scanner results"
   else:
+    logger.debug("Scanner results: {results}", results=results)
     return f"I found {len(results)} stocks matching the scanner parameters: {results}"

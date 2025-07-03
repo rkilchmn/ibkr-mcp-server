@@ -16,9 +16,11 @@ async def get_positions() -> list[dict]:
 
   """
   try:
+    logger.debug("Getting positions")
     positions = await ib_interface.get_positions()
   except Exception as e:
     logger.error("Error in get_positions: {!s}", str(e))
     return JSONResponse(content=[], media_type="application/json")
   else:
+    logger.debug("Positions: {positions}", positions=positions)
     return JSONResponse(content=positions, media_type="application/json")

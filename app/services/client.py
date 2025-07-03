@@ -23,7 +23,6 @@ class IBClient:
     port = self.config.ib_gateway_port
 
     try:
-      logger.debug("Connecting to IB on {}:{}", host, port)
       await self.ib.connectAsync(
         host=host,
         port=port,
@@ -32,7 +31,6 @@ class IBClient:
         readonly=False,
       )
       self.ib.RequestTimeout = 20
-      logger.debug("Connected to IB on {}:{}", host, port)
     except Exception as e:
       logger.error("Error connecting to IB: {}", e)
       raise
@@ -74,4 +72,4 @@ class IBClient:
       if self.ib and self.ib.isConnected():
         self.ib.disconnect()
     except Exception:
-      logger.debug("Error disconnecting from IB")
+      logger.warning("Error disconnecting from IB")

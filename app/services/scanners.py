@@ -76,7 +76,6 @@ class ScannerClient(IBClient):
 
     """
     try:
-      logger.debug("Getting scanner results with tags: {}", tags)
       cleaned_tags = [TagValue(tag.split("=")[0], tag.split("=")[1]) for tag in tags]
 
       await self._connect()

@@ -192,7 +192,6 @@ class MarketDataClient(IBClient):
 
       # Apply criteria filters
       filtered_data = market_data_df.copy()
-      logger.info("Filtered data: {}", filtered_data)
 
       # Apply delta range if specified
       if criteria and ("min_delta" in criteria or "max_delta" in criteria):

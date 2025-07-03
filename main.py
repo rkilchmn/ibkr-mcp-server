@@ -24,6 +24,13 @@ def parse_args() -> argparse.Namespace:
     default=8000,
     help="Application port (default: 8000)",
   )
+  parser.add_argument(
+    "--log-level",
+    type=str,
+    default="INFO",
+    help="Log level (default: INFO)",
+  )
+
   return parser.parse_args()
 
 def main() -> None:
@@ -35,6 +42,7 @@ def main() -> None:
     application_port=args.port,
     ib_gateway_username=args.ib_gateway_username,
     ib_gateway_password=args.ib_gateway_password,
+    log_level=args.log_level,
   )
 
   from app.main import app # noqa: PLC0415
