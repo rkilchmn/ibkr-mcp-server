@@ -60,7 +60,7 @@ class ScannerClient(IBClient):
       await self._connect()
       xml_parameters = await self.ib.reqScannerParametersAsync()
       tree = ElementTree.fromstring(xml_parameters)
-      tags = [elem.text for elem in tree.findall(".//ScanTypeList/ScanType/scanCode")]
+      tags = [elem.text for elem in tree.findall(".//scanCode")]
     except Exception as e:
       logger.error("Error getting scanner filter codes: {}", str(e))
       raise
@@ -72,7 +72,7 @@ class ScannerClient(IBClient):
       instrument_code: str,
       location_code: str,
       tags: list[(str, str)],
-      scan_code: str | None = "TOP_PERC_GAIN",
+      scan_code: str | None,
       number_of_rows: int | None = 100,
     ) -> list[str]:
     """Get scanner results.

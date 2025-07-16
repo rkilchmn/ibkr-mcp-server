@@ -8,6 +8,7 @@ class Config(BaseSettings):
   ib_gateway_password: str
   application_port: int = 8000
   log_level: str = "INFO"
+  mode: str = "PROD"
 
   # Non-essential parameters
   enable_file_logging: bool = False
@@ -39,6 +40,7 @@ class ConfigManager:
     ib_gateway_password: str,
     application_port: int,
     log_level: str = "INFO",
+    mode: str = "PROD",
   ) -> Config:
     """Initialize the global config with CLI parameters."""
     config_kwargs = {}
@@ -47,7 +49,7 @@ class ConfigManager:
     config_kwargs["ib_gateway_password"] = ib_gateway_password
     config_kwargs["application_port"] = application_port
     config_kwargs["log_level"] = log_level
-
+    config_kwargs["mode"] = mode
     cls._instance = Config(**config_kwargs)
     return cls._instance
 
@@ -61,6 +63,7 @@ def init_config(
   ib_gateway_password: str,
   application_port: int,
   log_level: str = "INFO",
+  mode: str = "PROD",
 ) -> Config:
   """Initialize the global config with CLI parameters."""
   return ConfigManager.init_config(
@@ -68,4 +71,5 @@ def init_config(
     ib_gateway_password=ib_gateway_password,
     application_port=application_port,
     log_level=log_level,
+    mode=mode,
   )

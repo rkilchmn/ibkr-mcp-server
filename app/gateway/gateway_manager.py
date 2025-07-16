@@ -66,6 +66,9 @@ class IBKRGatewayManager:
 
   async def cleanup(self) -> None:
     """Cleanup resources when shutting down."""
+    if config.mode == "DEV":
+      logger.info("Dev mode: Keeping IBKR Gateway running...")
+      return
     try:
       if self.is_running:
         await self.stop_gateway()

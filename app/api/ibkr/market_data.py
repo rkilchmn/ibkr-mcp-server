@@ -106,7 +106,7 @@ async def get_and_filter_options_chain(
       criteria='{"min_delta": -0.06, "max_delta": -0.04}',
     )
     [
-      TickerData(symbol='SPXW  250505P05490000', last=45.50, greeks=GreeksData(delta=-0.05)),
+      TickerData(symbol='SPXW 250505P05490000', last=45.50, greeks=GreeksData(delta=-0.05)), #noqa: E501
     ]
 
   """
