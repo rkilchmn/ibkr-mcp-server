@@ -11,6 +11,97 @@ FILTER_CODES_QUERY = Query(
   description="List of filter parameters in 'parameter=value' format",
 )
 
+@ibkr_router.get("/scanner/workflow", operation_id="get_scanner_workflow")
+async def get_scanner_workflow() -> dict:
+  """Get step-by-step workflow for using scanner effectively.
+
+  Returns a guide on how to use the scanner endpoints efficiently,
+  including the recommended order of operations and best practices.
+
+  Returns:
+    dict: Step-by-step workflow and usage tips
+
+  Example:
+    >>> get_scanner_workflow()
+    {
+      "workflow": [
+        {"step": 1, "action": "get_scanner_instrument_codes", "description": "..."},
+        ...
+      ],
+      "tips": ["Always call the code endpoints first", ...]
+    }
+
+  """
+  logger.debug("Returning scanner workflow")
+  return {
+    "workflow": [
+      {
+        "step": 1,
+        "action": "get_scanner_instrument_codes",
+        "description": "Get available instrument types (STK, FUT, OPT)",
+        "endpoint": "/scanner/instrument_codes",
+      },
+      {
+        "step": 2,
+        "action": "get_scanner_location_codes",
+        "description": "Get available location codes (STK.US, STK.EU, etc.)",
+        "endpoint": "/scanner/location_codes",
+      },
+      {
+        "step": 3,
+        "action": "get_scanner_scan_codes",
+        "description": "Get available scan codes for predefined scans",
+        "endpoint": "/scanner/scan_codes",
+      },
+      {
+        "step": 4,
+        "action": "get_scanner_filter_codes",
+        "description": "Get available filter parameters with examples",
+        "endpoint": "/scanner/filter_codes",
+      },
+      {
+        "step": 5,
+        "action": "get_scanner_results",
+        "description": "Execute scanner query with scan_code and empty filters",
+        "endpoint": "/scanner/results",
+      },
+      {
+        "step": 6,
+        "action": "get_scanner_results",
+        "description": "Fine-tune results by adding filters progressively",
+        "endpoint": "/scanner/results",
+      },
+    ],
+    "tips": [
+      "Always call the code endpoints first to get valid parameters",
+      "Use scan_code for predefined scans (e.g., TOP_PERC_GAIN, MOST_ACTIVE)",
+      "Use filters for fine-tuning scan_code results",
+      "Common filters: priceAbove, priceBelow, marketCapAbove1e6, avgVolumeAbove",
+      "Use comma-separated filters: 'priceAbove=10,marketCapAbove1e6=1000'",
+    ],
+    "examples": {
+      "scan_code": {
+        "description": "Use predefined scan code",
+        "request": {
+          "instrument_code": "STK",
+          "location_code": "STK.US",
+          "scan_code": "TOP_PERC_GAIN",
+          "max_results": 25,
+        },
+      },
+      "scan_code_with_filters": {
+        "description": "Use scan_code, fine-tune with filters",
+        "request": {
+          "instrument_code": "STK",
+          "location_code": "STK.US",
+          "scan_code": "TOP_PERC_GAIN",
+          "filters": "priceAbove=10,marketCapAbove1e6=1000",
+          "max_results": 25,
+        },
+      },
+    },
+  }
+
 @ibkr_router.get(
   "/scanner/instrument_codes",
   operation_id="get_scanner_instrument_codes",
@@ -175,7 +266,7 @@ async def get_scanner_filter_codes() -> dict:
         ...
       ],
       "usage": "Use filters in 'parameter=value' format, e.g., "
-      " 'priceAbove=10,marketCapAbove=1000000000'"
+      " 'priceAbove=10,marketCapAbove1e6=1000'"
     }
 
   """
@@ -192,9 +283,10 @@ async def get_scanner_filter_codes() -> dict:
       "filter_codes": tags,
       "count": len(tags),
       "usage": "Use filters to fine-tune scan_code results in 'parameter=value' format,"
-      " e.g., 'priceAbove=10,marketCapAbove1e6=1000000000'",
+      " e.g., 'priceAbove=10,marketCapAbove1e6=1000'",
       "tips": [
         "Combine multiple filters to narrow results",
+        "Use marketCapAbove1e6 to filter by cap, use numbers in millions USD",
         "Use priceAbove to filter out penny stocks",
         "Use avgVolumeAbove to ensure liquidity",
       ],
@@ -217,7 +309,7 @@ async def get_scanner_results(
     description="""
     Comma-separated filters in 'parameter=value' format.
     These are used to fine-tune scan_code results.
-    Examples: 'priceAbove=10,marketCapAbove1e6=1000000000' or
+    Examples: 'priceAbove=10,marketCapAbove1e6=1000' or
     'priceAbove=10,avgVolumeAbove=1000000'
     Common filters: priceAbove, priceBelow, marketCapAbove1e6, avgVolumeAbove
     Call get_scanner_filter_codes() to see all available filters with examples.
@@ -240,7 +332,7 @@ async def get_scanner_results(
     scan_code (str): Predefined scan type (e.g., 'TOP_PERC_GAIN', 'MOST_ACTIVE').
     filters (str, optional): Used to fine-tune scan_code results.
       Comma-separated parameters in 'parameter=value' format,
-      e.g. 'priceAbove=10,marketCapAbove=1000000000'
+      e.g. 'priceAbove=10,marketCapAbove1e6=1000'
     max_results (int): Maximum number of results to return
 
   Returns:
@@ -251,7 +343,7 @@ async def get_scanner_results(
       instrument_code="STK",
       location_code="STK.US",
       scan_code="TOP_PERC_GAIN",
-      filters="priceAbove=10,marketCapAbove1e6=1000000000",
+      filters="priceAbove=10,marketCapAbove1e6=1000",
       max_results=25
     )
     "I found 3 stocks matching the scanner parameters: ['AAPL', 'MSFT', 'GOOGL']"
@@ -290,87 +382,3 @@ async def get_scanner_results(
   else:
     logger.debug("Scanner results: {results}", results=results)
     return f"I found {len(results)} stocks matching the scanner parameters: {results}"
-
-@ibkr_router.get("/scanner/workflow", operation_id="get_scanner_workflow")
-async def get_scanner_workflow() -> dict:
-  """Get step-by-step workflow for using scanner effectively.
-
-  Returns a guide on how to use the scanner endpoints efficiently,
-  including the recommended order of operations and best practices.
-
-  Returns:
-    dict: Step-by-step workflow and usage tips
-
-  Example:
-    >>> get_scanner_workflow()
-    {
-      "workflow": [
-        {"step": 1, "action": "get_scanner_instrument_codes", "description": "..."},
-        ...
-      ],
-      "tips": ["Always call the code endpoints first", ...]
-    }
-
-  """
-  return {
-    "workflow": [
-      {
-        "step": 1,
-        "action": "get_scanner_instrument_codes",
-        "description": "Get available instrument types (STK, FUT, OPT)",
-        "endpoint": "/scanner/instrument_codes",
-      },
-      {
-        "step": 2,
-        "action": "get_scanner_location_codes",
-        "description": "Get available location codes (STK.US, STK.EU, etc.)",
-        "endpoint": "/scanner/location_codes",
-      },
-      {
-        "step": 3,
-        "action": "get_scanner_scan_codes",
-        "description": "Get available scan codes for predefined scans",
-        "endpoint": "/scanner/scan_codes",
-      },
-      {
-        "step": 4,
-        "action": "get_scanner_filter_codes",
-        "description": "Get available filter parameters with examples",
-        "endpoint": "/scanner/filter_codes",
-      },
-      {
-        "step": 5,
-        "action": "get_scanner_results",
-        "description": "Execute scanner query with scan_code, fine-tune with filters",
-        "endpoint": "/scanner/results",
-      },
-    ],
-    "tips": [
-      "Always call the code endpoints first to get valid parameters",
-      "Use scan_code for predefined scans (e.g., TOP_PERC_GAIN, MOST_ACTIVE)",
-      "Use filters for fine-tuning scan_code results",
-      "Common filters: priceAbove, priceBelow, marketCapAbove1e6, avgVolumeAbove",
-      "Use comma-separated filters: 'priceAbove=10,marketCapAbove1e6=1000000000'",
-    ],
-    "examples": {
-      "scan_code": {
-        "description": "Use predefined scan code",
-        "request": {
-          "instrument_code": "STK",
-          "location_code": "STK.US",
-          "scan_code": "TOP_PERC_GAIN",
-          "max_results": 25,
-        },
-      },
-      "scan_code_with_filters": {
-        "description": "Use scan_code, fine-tune with filters",
-        "request": {
-          "instrument_code": "STK",
-          "location_code": "STK.US",
-          "scan_code": "TOP_PERC_GAIN",
-          "filters": "priceAbove=10,marketCapAbove1e6=1000000000",
-          "max_results": 25,
-        },
-      },
-    },
-  }
