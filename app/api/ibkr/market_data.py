@@ -112,8 +112,14 @@ async def get_and_filter_options_chain(
   """
   try:
     logger.debug(
-      "Getting and filtering options chain for symbol: {symbol}",
-      symbol=underlying_symbol,
+      f"""
+      Getting and filtering options chain for the following parameters:
+      underlying_symbol: {underlying_symbol},
+      underlying_sec_type: {underlying_sec_type},
+      underlying_con_id: {underlying_con_id},
+      filters: {filters},
+      criteria: {criteria}
+      """,
     )
     # Parse JSON strings to dictionaries
     filters_dict = json.loads(filters) if filters else None

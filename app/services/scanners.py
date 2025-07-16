@@ -54,6 +54,19 @@ class ScannerClient(IBClient):
     else:
       return tags
 
+  async def get_scanner_scan_codes(self) -> list[str]:
+    """Get scanner scan codes."""
+    try:
+      await self._connect()
+      xml_parameters = await self.ib.reqScannerParametersAsync()
+      tree = ElementTree.fromstring(xml_parameters)
+      tags = [elem.text for elem in tree.findall(".//ScanTypeList/ScanType/scanCode")]
+    except Exception as e:
+      logger.error("Error getting scanner filter codes: {}", str(e))
+      raise
+    else:
+      return tags
+
   async def get_scanner_results(
       self,
       instrument_code: str,
