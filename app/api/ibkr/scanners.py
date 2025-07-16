@@ -209,7 +209,7 @@ async def get_scanner_results(
     description="""
     Scan code for predefined scans (e.g., 'TOP_PERC_GAIN', 'MOST_ACTIVE').
     Call get_scanner_scan_codes() to see all available scan codes.
-    Must submit scan_code, 'MOST_ACTIVE' is the default.
+    Must submit scan_code, 'MOST_ACTIVE' is a good default.
     """,
   ),
   filters: str | None = Query(

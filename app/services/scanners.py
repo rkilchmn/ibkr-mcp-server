@@ -4,6 +4,7 @@ from ib_async.objects import ScannerSubscription, TagValue
 
 from .client import IBClient
 from app.core.setup_logging import logger
+from app.models.scanner import ScannerRequest
 
 class ScannerClient(IBClient):
   """Scanner operations.
@@ -67,36 +68,26 @@ class ScannerClient(IBClient):
     else:
       return tags
 
-  async def get_scanner_results(
-      self,
-      instrument_code: str,
-      location_code: str,
-      tags: list[(str, str)],
-      scan_code: str | None,
-      number_of_rows: int | None = 100,
-    ) -> list[str]:
+  async def get_scanner_results(self, scanner_request: ScannerRequest) -> list[str]:
     """Get scanner results.
 
     Args:
-      instrument_code: Instrument code to get scanner results for.
-      location_code: Location code to get scanner results for.
-      tags: Tags to get scanner results for.
-      scan_code: Scan code to get scanner results for.
-      number_of_rows: Number of rows to get scanner results for.
+      scanner_request: Scanner request object.
+
 
     Returns:
       List of symbols for the given scanner results.
 
     """
     try:
-      cleaned_tags = [TagValue(tag.split("=")[0], tag.split("=")[1]) for tag in tags]
+      cleaned_tags = [TagValue(tag.split("=")[0], tag.split("=")[1]) for tag in scanner_request.get_filter_codes()] #noqa: E501
 
       await self._connect()
       sub_object = ScannerSubscription(
-        numberOfRows=number_of_rows,
-        instrument=instrument_code,
-        locationCode=location_code,
-        scanCode=scan_code,
+        numberOfRows=scanner_request.max_results,
+        instrument=scanner_request.instrument_code,
+        locationCode=scanner_request.location_code,
+        scanCode=scanner_request.scan_code,
       )
       active_sub = self.ib.reqScannerSubscription(sub_object, [], cleaned_tags)
       scanner_data = await self.ib.reqScannerDataAsync(sub_object, [], cleaned_tags)
