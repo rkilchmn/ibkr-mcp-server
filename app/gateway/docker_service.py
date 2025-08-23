@@ -27,13 +27,15 @@ docker_config = {
     "PASSWORD": config.ib_gateway_password,
     "TWOFA_TIMEOUT_ACTION": "restart",
     "GATEWAY_OR_TWS": "gateway",
-    "IBC_TradingMode": "live",
+    "IBC_TradingMode": config.ib_gateway_tradingmode,
     "IBC_ReadOnlyApi": "no",
     "IBC_ReloginAfterSecondFactorAuthenticationTimeout": "yes",
     "IBC_AutoRestartTime": "08:35 AM",
     "IBC_CommandServerPort": config.ib_command_server_port,
     "IBC_ControlFrom": "127.0.0.1",
     "IBC_BindAddress": "127.0.0.1",
+    "IBC_AcceptIncomingConnectionAction": "accept",
+    "IBC_AcceptNonBrokerageAccountWarning": "yes",
   },
 }
 
