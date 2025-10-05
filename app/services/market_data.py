@@ -9,7 +9,7 @@ from ib_async.contract import Contract
 from .client import IBClient
 from .contracts import ContractClient
 from app.core.setup_logging import logger
-from app.models import TickerData, GreeksData
+from app.models import TickerData, GreeksData, BarData, TickData
 
 class MarketDataClient(IBClient):
   """Market data operations."""
@@ -238,3 +238,188 @@ class MarketDataClient(IBClient):
     except Exception as e:
       logger.error("Error filtering options: {}", str(e))
       raise
+
+  async def get_historical_data(
+      self,
+      symbol: str,
+      sec_type: str = "STK",
+      exchange: str = "SMART",
+      currency: str = "USD",
+      duration: str = "1 D",
+      bar_size: str = "1 min",
+      what_to_show: str = "TRADES",
+      use_rth: bool = True
+    ) -> list[BarData]:
+    """Get historical market data.
+    
+    Args:
+      symbol: Symbol to get data for
+      sec_type: Security type (default: STK)
+      exchange: Exchange (default: SMART)
+      currency: Currency (default: USD)
+      duration: Duration string (e.g., '1 D', '1 W', '1 M')
+      bar_size: Bar size (e.g., '1 min', '5 mins', '1 hour', '1 day')
+      what_to_show: What to show (TRADES, MIDPOINT, BID, ASK)
+      use_rth: Use regular trading hours only
+      
+    Returns:
+      List of historical bar data
+    """
+    await self._connect()
+    
+    try:
+      # Create contract
+      ib_contract = Contract()
+      ib_contract.symbol = symbol
+      ib_contract.secType = sec_type
+      ib_contract.exchange = exchange
+      ib_contract.currency = currency
+      
+      # Qualify contract
+      qualified_contracts = await self.ib.qualifyContractsAsync(ib_contract)
+      if not qualified_contracts:
+        raise Exception(f"Could not qualify contract: {symbol}")
+      
+      ib_contract = qualified_contracts[0]
+      
+      # Request historical data
+      bars = await self.ib.reqHistoricalDataAsync(
+        contract=ib_contract,
+        endDateTime='',
+        durationStr=duration,
+        barSizeSetting=bar_size,
+        whatToShow=what_to_show,
+        useRTH=use_rth
+      )
+      
+      return [
+        BarData(
+          date=bar.date.isoformat() if hasattr(bar.date, 'isoformat') else str(bar.date),
+          open=float(bar.open),
+          high=float(bar.high),
+          low=float(bar.low),
+          close=float(bar.close),
+          volume=int(bar.volume),
+          wap=float(bar.wap) if hasattr(bar, 'wap') and bar.wap else None,
+          count=int(bar.barCount) if hasattr(bar, 'barCount') else None
+        )
+        for bar in bars
+      ]
+      
+    except Exception as e:
+      logger.error(f"Failed to get historical data: {e}")
+      raise Exception(f"Historical data error: {e}")
+
+  async def get_market_data_snapshot(
+      self,
+      symbol: str,
+      sec_type: str = "STK",
+      exchange: str = "SMART",
+      currency: str = "USD",
+      con_id: int | None = None
+    ) -> TickData | None:
+    """Get real-time market data snapshot.
+    
+    Args:
+      symbol: Symbol to get data for
+      sec_type: Security type (default: STK)
+      exchange: Exchange (default: SMART)
+      currency: Currency (default: USD)
+      con_id: Contract ID (optional)
+      
+    Returns:
+      Tick data or None if not available
+    """
+    await self._connect()
+    
+    try:
+      # Create contract
+      if con_id:
+        ib_contract = Contract(conId=con_id)
+      else:
+        ib_contract = Contract()
+        ib_contract.symbol = symbol
+        ib_contract.secType = sec_type
+        ib_contract.exchange = exchange
+        ib_contract.currency = currency
+      
+      # Qualify contract
+      qualified_contracts = await self.ib.qualifyContractsAsync(ib_contract)
+      if not qualified_contracts:
+        raise Exception(f"Could not qualify contract: {symbol}")
+      
+      ib_contract = qualified_contracts[0]
+      
+      # Request market data snapshot
+      ticker = self.ib.reqMktData(ib_contract, '', True, False)
+      
+      # Wait for data to be populated
+      await self.ib.sleep(0.5)
+      
+      # Extract data with NaN handling
+      last = None
+      bid = None
+      ask = None
+      bid_size = None
+      ask_size = None
+      volume = None
+      
+      if ticker:
+        # Check last price
+        if ticker.last and str(ticker.last).lower() not in ['nan', 'inf', '-inf']:
+          try:
+            last = float(ticker.last)
+          except (ValueError, TypeError):
+            pass
+        
+        # Check bid
+        if ticker.bid and str(ticker.bid).lower() not in ['nan', 'inf', '-inf']:
+          try:
+            bid = float(ticker.bid)
+          except (ValueError, TypeError):
+            pass
+        
+        # Check ask
+        if ticker.ask and str(ticker.ask).lower() not in ['nan', 'inf', '-inf']:
+          try:
+            ask = float(ticker.ask)
+          except (ValueError, TypeError):
+            pass
+        
+        # Check bid size
+        if hasattr(ticker, 'bidSize') and ticker.bidSize:
+          try:
+            bid_size = int(ticker.bidSize)
+          except (ValueError, TypeError):
+            pass
+        
+        # Check ask size
+        if hasattr(ticker, 'askSize') and ticker.askSize:
+          try:
+            ask_size = int(ticker.askSize)
+          except (ValueError, TypeError):
+            pass
+        
+        # Check volume
+        if hasattr(ticker, 'volume') and ticker.volume:
+          try:
+            volume = int(ticker.volume)
+          except (ValueError, TypeError):
+            pass
+        
+        return TickData(
+          symbol=symbol,
+          contract_id=ib_contract.conId if hasattr(ib_contract, 'conId') else None,
+          last=last,
+          bid=bid,
+          ask=ask,
+          bid_size=bid_size,
+          ask_size=ask_size,
+          volume=volume
+        )
+      
+      return None
+      
+    except Exception as e:
+      logger.error(f"Failed to get market data: {e}")
+      raise Exception(f"Market data error: {e}")
