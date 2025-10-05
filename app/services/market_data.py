@@ -354,7 +354,7 @@ class MarketDataClient(IBClient):
       ticker = self.ib.reqMktData(ib_contract, '', True, False)
       
       # Wait for data to be populated
-      await self.ib.sleep(0.5)
+      await asyncio.sleep(0.5)
       
       # Extract data with NaN handling
       last = None

@@ -1,4 +1,5 @@
 """Account management service."""
+import asyncio
 from app.services.client import IBClient
 from app.core.setup_logging import logger
 from app.models import AccountSummary, AccountValue, Position
@@ -23,7 +24,7 @@ class AccountClient(IBClient):
       
       if not summary_items:
         self.ib.reqAccountUpdates(True)
-        await self.ib.sleep(2)
+        await asyncio.sleep(2)
         summary_items = self.ib.accountSummary()
       
       return [
@@ -97,7 +98,7 @@ class AccountClient(IBClient):
         try:
           # Request market data for the position
           ticker = self.ib.reqMktData(pos.contract, '', True, False)
-          await self.ib.sleep(0.5)
+          await asyncio.sleep(0.5)
           
           if ticker and ticker.last and str(ticker.last).lower() not in ['nan', 'inf', '-inf']:
             market_price = float(ticker.last)

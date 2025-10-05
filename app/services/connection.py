@@ -1,4 +1,5 @@
 """Connection management service."""
+import asyncio
 from app.services.client import IBClient
 from app.core.setup_logging import logger
 from app.models import ConnectionStatus, ReconnectResponse
@@ -55,7 +56,7 @@ class ConnectionClient(IBClient):
       if self.ib.isConnected():
         logger.info("Disconnecting from IBKR Gateway...")
         self.ib.disconnect()
-        await self.ib.sleep(1)
+        await asyncio.sleep(1)
       
       # Attempt to reconnect
       logger.info("Attempting to reconnect to IBKR Gateway...")

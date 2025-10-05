@@ -1,4 +1,5 @@
 """Trading operations service."""
+import asyncio
 from ib_async import Contract as IBContract, Order as IBOrder, Stock, Option, Future, Forex
 from app.services.client import IBClient
 from app.core.setup_logging import logger
@@ -103,7 +104,7 @@ class TradingClient(IBClient):
       
       # Place order
       trade = self.ib.placeOrder(ib_contract, ib_order)
-      await self.ib.sleep(0.5)  # Wait for order to be acknowledged
+      await asyncio.sleep(0.5)  # Wait for order to be acknowledged
       
       logger.info(f"Order placed: {trade.order.orderId} for {contract.symbol}")
       
