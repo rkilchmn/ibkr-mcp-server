@@ -264,51 +264,77 @@ class MarketDataClient(IBClient):
       
     Returns:
       List of historical bar data
+      
+    Raises:
+      Exception: If contract qualification fails or historical data cannot be retrieved
     """
     await self._connect()
     
     try:
       # Create contract
       ib_contract = Contract()
-      ib_contract.symbol = symbol
-      ib_contract.secType = sec_type
-      ib_contract.exchange = exchange
-      ib_contract.currency = currency
+      ib_contract.symbol = symbol.upper()  # Ensure symbol is uppercase
+      ib_contract.secType = sec_type.upper()  # Ensure security type is uppercase
+      ib_contract.exchange = exchange.upper()  # Ensure exchange is uppercase
+      ib_contract.currency = currency.upper()  # Ensure currency is uppercase
+      
+      logger.debug(f"Qualifying contract: {ib_contract}")
       
       # Qualify contract
-      qualified_contracts = await self.ib.qualifyContractsAsync(ib_contract)
-      if not qualified_contracts:
-        raise Exception(f"Could not qualify contract: {symbol}")
+      try:
+        qualified_contracts = await self.ib.qualifyContractsAsync(ib_contract)
+        if not qualified_contracts or not qualified_contracts[0]:
+          raise ValueError(f"No contract found for {symbol} (type: {sec_type}, exchange: {exchange}, currency: {currency})")
+        
+        ib_contract = qualified_contracts[0]
+        logger.debug(f"Qualified contract: {ib_contract}")
+        
+      except Exception as qual_error:
+        error_msg = f"Failed to qualify contract {symbol} (type: {sec_type}, exchange: {exchange}): {str(qual_error)}"
+        logger.error(error_msg)
+        raise ValueError(error_msg) from qual_error
       
-      ib_contract = qualified_contracts[0]
-      
-      # Request historical data
-      bars = await self.ib.reqHistoricalDataAsync(
-        contract=ib_contract,
-        endDateTime='',
-        durationStr=duration,
-        barSizeSetting=bar_size,
-        whatToShow=what_to_show,
-        useRTH=use_rth
-      )
-      
-      return [
-        BarData(
-          date=bar.date.isoformat() if hasattr(bar.date, 'isoformat') else str(bar.date),
-          open=float(bar.open),
-          high=float(bar.high),
-          low=float(bar.low),
-          close=float(bar.close),
-          volume=int(bar.volume),
-          wap=float(bar.wap) if hasattr(bar, 'wap') and bar.wap else None,
-          count=int(bar.barCount) if hasattr(bar, 'barCount') else None
+      try:
+        # Request historical data
+        logger.debug(f"Requesting historical data for {ib_contract.symbol} ({ib_contract.secType})...")
+        bars = await self.ib.reqHistoricalDataAsync(
+          contract=ib_contract,
+          endDateTime='',
+          durationStr=duration,
+          barSizeSetting=bar_size,
+          whatToShow=what_to_show,
+          useRTH=use_rth,
+          timeout=30  # 30 second timeout
         )
-        for bar in bars
-      ]
+        
+        if not bars:
+          logger.warning(f"No historical data returned for {ib_contract.symbol} (type: {ib_contract.secType})")
+          return []
+        
+        logger.debug(f"Received {len(bars)} bars of historical data for {ib_contract.symbol}")
+        
+        return [
+          BarData(
+            date=bar.date.isoformat() if hasattr(bar.date, 'isoformat') else str(bar.date),
+            open=float(bar.open) if bar.open is not None else None,
+            high=float(bar.high) if bar.high is not None else None,
+            low=float(bar.low) if bar.low is not None else None,
+            close=float(bar.close) if bar.close is not None else None,
+            volume=int(bar.volume) if bar.volume is not None else 0,
+            wap=float(bar.wap) if hasattr(bar, 'wap') and bar.wap is not None else None,
+            count=int(bar.barCount) if hasattr(bar, 'barCount') and bar.barCount is not None else None
+          )
+          for bar in bars
+        ]
+        
+      except Exception as hist_error:
+        error_msg = f"Failed to get historical data for {ib_contract.symbol} (type: {ib_contract.secType}): {str(hist_error)}"
+        logger.error(error_msg)
+        raise Exception(error_msg) from hist_error
       
     except Exception as e:
-      logger.error(f"Failed to get historical data: {e}")
-      raise Exception(f"Historical data error: {e}")
+      logger.error(f"Historical data error for {symbol}: {str(e)}", exc_info=True)
+      raise Exception(f"Historical data error: {str(e)}")
 
   async def get_market_data_snapshot(
       self,
