@@ -71,6 +71,7 @@ def main() -> None:
   )
 
   from app.main import app # noqa: PLC0415
+  app.state.port = config.application_port
   uvicorn.run(
     app,
     host="127.0.0.1",

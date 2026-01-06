@@ -12,9 +12,10 @@ from app.core.setup_logging import setup_logging
 logger = setup_logging()
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
   """Lifespan events for the application."""
-  logger.info("Starting IBKR MCP Server...")
+  port = getattr(app.state, 'port', 8000)
+  logger.info(f"Starting IBKR MCP Server on port {port}...")
   try:
     success = await gateway.gateway_manager.start_gateway()
     if success:
