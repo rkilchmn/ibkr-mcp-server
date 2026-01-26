@@ -6,6 +6,25 @@ from loguru import logger
 from app.core.config import get_config
 
 
+class InterceptHandler(logging.Handler):
+  """Intercept standard logging and send to loguru."""
+
+  def emit(self, record):
+    # Get corresponding Loguru level if it exists
+    try:
+      level = logger.level(record.levelname).name
+    except ValueError:
+      level = record.levelno
+
+    # Find caller from where originated the logged message
+    frame, depth = logging.currentframe(), 2
+    while frame and frame.f_code.co_name == 'emit':
+      frame = frame.f_back
+      depth += 1
+
+    logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+
+
 def setup_logging() -> None:
   """Set up logging configuration based on settings."""
   config = get_config()
@@ -32,7 +51,10 @@ def setup_logging() -> None:
       retention="7 days",
     )
 
-  logging.getLogger("ib_async").setLevel(logging.CRITICAL)
+  # Intercept standard logging
+  logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
+
+  logging.getLogger("ib_async").setLevel(logging.WARNING)
   logging.getLogger("uvicorn").setLevel(logging.CRITICAL)
   logging.getLogger("uvicorn.access").setLevel(logging.CRITICAL)
   logging.getLogger("uvicorn.error").setLevel(logging.CRITICAL)

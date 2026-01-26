@@ -1,4 +1,6 @@
 """Contract operations."""
+from typing import List, Dict, Any
+
 from ib_async import util
 from ib_async.contract import Contract, Option
 
@@ -19,8 +21,10 @@ class ContractClient(IBClient):
       symbol: str,
       sec_type: str,
       exchange: str,
+      primary_exchange: str | None = None,
       options: dict | None = None,
-    ) -> list[str]:
+      return_all: bool = True
+    ) -> List[Dict[str, Any]]:
     """Get contract details for a given symbol.
 
     Args:
@@ -65,26 +69,34 @@ class ContractClient(IBClient):
         conId=0,
         symbol=symbol,
         exchange=exchange,
+        primaryExchange=primary_exchange,
         secType=sec_type,
         **contract_params,
       )
 
-      contracts = await self.ib.qualifyContractsAsync(contract)
-      contracts = util.df(contracts)
-      contracts = contracts[[
-        "conId",
-        "symbol",
-        "secType",
-        "exchange",
-        "currency",
-        "localSymbol",
-        "multiplier",
-      ]]
+      contracts = await self.ib.qualifyContractsAsync(contract, returnAll=return_all)
+      if not contracts or contracts[0] is None:
+        return []
+      else:
+        # contracts[0] is either a Contract or a list of Contracts (if ambiguous and returnAll=True)
+        if isinstance(contracts[0], list):
+          return contracts[0]       
+        else:
+          contracts = util.df(contracts)
+          contracts = contracts[[
+            "conId",
+            "symbol",
+            "secType",
+            "exchange",
+            "currency",
+            "localSymbol",
+            "multiplier",
+          ]]
+          return contracts.to_dict(orient="records")
+
     except Exception as e:
       logger.error("Error getting contract details: {}", str(e))
       raise
-    else:
-      return contracts.to_dict(orient="records")
 
   async def get_options_chain(
     self,

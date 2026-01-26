@@ -301,14 +301,17 @@ Get detailed information about a contract.
 - `symbol`: The symbol (e.g., AAPL)
 - `sec_type`: Security type (e.g., STK, OPT, FUT)
 - `exchange`: Exchange (e.g., SMART, ISLAND)
+- `primary_exchange`: Primary exchange (e.g., NASDAQ, NYSE)
 - `currency`: Currency (e.g., USD)
 - `expiry`: Expiration date (YYYYMM or YYYYMMDD for options/futures)
 - `strike`: Strike price (for options)
 - `right`: Put or Call (for options)
-
+- `return_all`: default is 'true' and all possible contracts are returned. If 'false' only full qualified contract is returned or nothing if contract is ambiguous
 **Example:**
+
+**Full qualified query**
 ```bash
-curl -X GET "http://localhost:8000/ibkr/contract_details?symbol=AAPL&sec_type=STK&exchange=SMART&currency=USD"
+curl -X GET "http://localhost:8000/ibkr/contract_details?symbol=AAPL&sec_type=STK&exchange=SMART&primary_exchange=NASDAQ&currency=USD"
 ```
 
 **Response:**

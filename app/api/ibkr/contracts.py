@@ -14,7 +14,9 @@ async def get_contract_details(
   symbol: str,
   sec_type: str,
   exchange: str,
+  primary_exchange: str | None = None,
   options: str | None = OPTIONS_QUERY,
+  return_all: bool = True
 ) -> str:
   """Get contract details for a given symbol.
 
@@ -22,6 +24,7 @@ async def get_contract_details(
     symbol (str): Symbol to get contract details for.
     sec_type (str): Security type (STK, IND, CASH, BAG, BOND, FUT, OPT)
     exchange (str): Exchange (CBOE, NYSE, ARCA, BATS, NASDAQ)
+    primary_exchange (str | None): Primary exchange for the contract
     options (str | None): Optional parameters as JSON string including:
       - lastTradeDateOrContractMonth: Expiry date for options - "YYYYMMDD"
       - strike: Strike price for options
@@ -46,14 +49,16 @@ async def get_contract_details(
       symbol=symbol,
       sec_type=sec_type,
       exchange=exchange,
+      primary_exchange=primary_exchange,
       options=options_dict,
+      return_all=return_all,
     )
   except Exception as e:
     logger.error("Error in get_contract_details: {!s}", str(e))
     return "Error getting contract details"
   else:
     logger.debug("Contract details: {details}", details=details)
-    return f"The contract details for the symbol are: {details}"
+    return f"{details}"
 
 @ibkr_router.get("/options_chain", operation_id="get_options_chain")
 async def get_options_chain(
