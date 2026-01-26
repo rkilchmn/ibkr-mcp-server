@@ -41,6 +41,10 @@ A FastAPI application that provides an MCP (Model Context Protocol) server for I
 
 The server will start on `http://localhost:8000` with API docs at `/docs`. MCP server will be available at `http://localhost:8000/mcp`.
 
+4. ** Troubleshoot **
+
+You can use http://localhost:6080/ for browser based VLC
+
 ## API Documentation
 
 All IBKR endpoints are automatically exposed as MCP tools via FastMCP. The API follows RESTful conventions and returns JSON responses.
@@ -51,6 +55,11 @@ These endpoints provide information about the IBKR Gateway Docker container.
 
 #### `GET /gateway/status`
 Get the current status of the IBKR Gateway container.
+
+**Example:**
+```bash
+curl -X GET "http://localhost:8000/gateway/status"
+```
 
 **Response:**
 ```json
@@ -67,7 +76,13 @@ Retrieve the container logs (last 100 lines by default).
 **Query Parameters:**
 - `tail`: Number of log lines to return (default: 100)
 
+**Example:**
+```bash
+curl -X GET "http://localhost:8000/gateway/logs?tail=100"
+```
+
 ---
+
 
 ### Account Management
 
@@ -76,6 +91,11 @@ Get a summary of the trading account information.
 
 **Query Parameters:**
 - `account_id`: (Optional) Specific account ID. If not provided, uses the default account.
+
+**Example:**
+```bash
+curl -X GET "http://localhost:8000/ibkr/account/summary"
+```
 
 **Response:**
 ```json
@@ -96,6 +116,11 @@ Get a summary of the trading account information.
 
 #### `GET /ibkr/account/positions`
 Get detailed information about current positions.
+
+**Example:**
+```bash
+curl -X GET "http://localhost:8000/ibkr/account/positions"
+```
 
 **Response:**
 ```json
@@ -138,6 +163,23 @@ Place a new order.
 }
 ```
 
+**Example:**
+```bash
+curl -X POST "http://localhost:8000/ibkr/orders/place" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contract_id": 12345678,
+    "order_type": "LMT",
+    "action": "BUY",
+    "quantity": 10,
+    "limit_price": 150.25,
+    "time_in_force": "DAY",
+    "tif": "20241231 23:59:59",
+    "outside_rth": false,
+    "transmit": true
+  }'
+```
+
 **Response:**
 ```json
 {
@@ -156,6 +198,11 @@ Cancel an existing order.
 
 **Path Parameters:**
 - `order_id`: The ID of the order to cancel
+
+**Example:**
+```bash
+curl -X DELETE "http://localhost:8000/ibkr/orders/987654321"
+```
 
 **Response:**
 ```json
@@ -177,6 +224,11 @@ Get real-time market data snapshot for a contract.
 - `sec_type`: Security type (e.g., STK, OPT, FUT)
 - `exchange`: Exchange (e.g., SMART, ISLAND)
 - `currency`: Currency (e.g., USD)
+
+**Example:**
+```bash
+curl -X GET "http://localhost:8000/ibkr/market_data/snapshot?contract_id=12345678"
+```
 
 **Response:**
 ```json
@@ -205,6 +257,11 @@ Get historical market data.
 - `bar_size`: Bar size (e.g., "1 min", "5 mins", "1 hour", "1 day")
 - `what_to_show`: Data type (e.g., "TRADES", "MIDPOINT", "BID", "ASK")
 - `use_rth`: Use regular trading hours only (true/false)
+
+**Example:**
+```bash
+curl -X GET "http://localhost:8000/ibkr/market_data/historical?contract_id=12345678&duration=1%20D&bar_size=1%20min&what_to_show=TRADES&use_rth=true"
+```
 
 **Response:**
 ```json
@@ -249,6 +306,11 @@ Get detailed information about a contract.
 - `strike`: Strike price (for options)
 - `right`: Put or Call (for options)
 
+**Example:**
+```bash
+curl -X GET "http://localhost:8000/ibkr/contract_details?symbol=AAPL&sec_type=STK&exchange=SMART&currency=USD"
+```
+
 **Response:**
 ```json
 {
@@ -288,6 +350,11 @@ Run a market scanner with specified parameters.
 - `market_cap_above`: Filter for market cap above
 - `market_cap_below`: Filter for market cap below
 
+**Example:**
+```bash
+curl -X GET "http://localhost:8000/ibkr/scanner/results?instrument=STK&location_code=STK.US.MAJOR"
+```
+
 **Response:**
 ```json
 {
@@ -326,6 +393,11 @@ Run a market scanner with specified parameters.
 #### `GET /ibkr/connection/status`
 Get the current connection status to IBKR Gateway/TWS.
 
+**Example:**
+```bash
+curl -X GET "http://localhost:8000/ibkr/connection/status"
+```
+
 **Response:**
 ```json
 {
@@ -340,6 +412,11 @@ Get the current connection status to IBKR Gateway/TWS.
 
 #### `POST /ibkr/connection/reconnect`
 Reconnect to IBKR Gateway/TWS.
+
+**Example:**
+```bash
+curl -X POST "http://localhost:8000/ibkr/connection/reconnect"
+```
 
 **Response:**
 ```json

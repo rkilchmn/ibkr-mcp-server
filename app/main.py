@@ -15,7 +15,7 @@ logger = setup_logging()
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
   """Lifespan events for the application."""
   port = getattr(app.state, 'port', 8000)
-  logger.info(f"Starting IBKR MCP Server on port {port}...")
+  logger.info(f"Starting IBKR API/MCP Server on port {port}...")
   try:
     success = await gateway.gateway_manager.start_gateway()
     if success:

@@ -8,8 +8,10 @@
             "name": "Python Debugger: IBKR MCP Server",
             "type": "debugpy",
             "request": "launch",
+            "python": "${workspaceFolder}/.venv/bin/python",
             "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal",
+            "justMyCode": false,
             "args": [
                 "--ib-gateway-tradingmode=paper"
             ], 
