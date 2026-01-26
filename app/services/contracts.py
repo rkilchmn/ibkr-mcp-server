@@ -21,7 +21,7 @@ class ContractClient(IBClient):
       symbol: str,
       sec_type: str,
       exchange: str,
-      primary_exchange: str,
+      primary_exchange: str | None = None,
       options: dict | None = None,
       return_all: bool = True
     ) -> List[Dict[str, Any]]:
@@ -69,8 +69,8 @@ class ContractClient(IBClient):
       contract = Contract(
         conId=0,
         symbol=symbol,
-        exchange=exchange,
-        primaryExchange=primary_exchange,
+        exchange=exchange or '',
+        primaryExchange=primary_exchange or '',
         secType=sec_type,
         **contract_params,
       )
@@ -89,6 +89,7 @@ class ContractClient(IBClient):
             "symbol",
             "secType",
             "exchange",
+            "primaryExchange",
             "currency",
             "localSymbol",
             "multiplier",
