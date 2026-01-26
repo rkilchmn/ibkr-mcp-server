@@ -14,7 +14,7 @@ async def get_contract_details(
   symbol: str,
   sec_type: str,
   exchange: str,
-  primary_exchange: str | None = None,
+  primary_exchange: str,
   options: str | None = OPTIONS_QUERY,
   return_all: bool = True
 ) -> str:
