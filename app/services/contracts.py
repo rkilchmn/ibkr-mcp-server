@@ -155,11 +155,11 @@ class ContractClient(IBClient):
         trading_classes = chains["tradingClass"].unique()
       contracts = [
         Option(
-          underlying_symbol,
-          expiry,
-          strike,
-          right,
-          "SMART",
+          symbol=underlying_symbol,
+          expiry=expiry,
+          strike=strike,
+          right=right,
+          exchange="SMART",
           tradingClass=trading_class,
         )
         for right in rights
@@ -168,7 +168,7 @@ class ContractClient(IBClient):
         for trading_class in trading_classes
       ]
       try:
-        contracts = await self.ib.qualifyContractsAsync(*contracts)
+        contracts = await self.ib.qualifyContractsAsync(*contracts, returnAll=True)
         contracts = [c for c in contracts if c is not None]
         contracts = util.df(contracts, labels=["conId", "localSymbol"])
       except Exception as e:

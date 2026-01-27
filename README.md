@@ -316,26 +316,49 @@ curl -X GET "http://localhost:8000/ibkr/contract_details?symbol=AAPL&sec_type=ST
 
 **Response:**
 ```json
-{
-  "contract_id": 12345678,
-  "symbol": "AAPL",
-  "sec_type": "STK",
-  "exchange": "SMART",
-  "primary_exchange": "NASDAQ",
-  "currency": "USD",
-  "trading_class": "NMS",
-  "conid": 12345678,
-  "multiplier": 1.0,
-  "min_tick": 0.01,
-  "price_magnifier": 1,
-  "last_trade_date": "",
-  "strike": 0.0,
-  "right": "",
-  "expiry": "",
-  "industry": "Technology",
-  "category": "Computers",
-  "subcategory": "Computer Hardware"
-}
+[
+  {
+    "conId": 265598,
+    "symbol": "AAPL",
+    "secType": "STK",
+    "exchange": "SMART",
+    "currency": "USD",
+    "localSymbol": "AAPL",
+    "multiplier": ""
+  }
+]
+```
+
+#### `GET /ibkr/options_chain`
+Get options chain for a given underlying contract.
+
+**Query Parameters:**
+- `underlying_symbol`: Symbol of the underlying contract (e.g., AAPL)
+- `underlying_sec_type`: Security type of the underlying contract (e.g., STK)
+- `underlying_con_id`: ConID of the underlying contract (e.g., 265598)
+- `filters`: Filters as JSON string to apply to the options chain (optional). You must specify at least one filter to reduce the number of options in the chain. You must specify expirations, you can specify tradingClass, strikes, and rights.
+  - `tradingClass`: List of trading classes to filter by (e.g., ["AAPL"])
+  - `expirations`: List of expirations to filter by (e.g., ["2027-01-15"])
+  - `strikes`: List of strikes to filter by (e.g., [150])
+  - `rights`: List of rights to filter by (e.g., ["C", "P"])
+
+**Example:**
+```bash
+curl -X GET "http://localhost:8000/ibkr/options_chain?underlying_symbol=AAPL&underlying_sec_type=STK&underlying_con_id=265598&filters=%7B%22tradingClass%22%3A%5B%22AAPL%22%5D%2C%22expirations%22%3A%5B%222027-01-15%22%5D%2C%22rights%22%3A%5B%22C%22%2C%22P%22%5D%2C%22strikes%22%3A%5B150%5D%7D"
+```
+
+**Response:**
+```json
+[
+  {
+    "conId": 730295700,
+    "localSymbol": "AAPL  270115C00150000"
+  },
+  {
+    "conId": 730296451,
+    "localSymbol": "AAPL  270115P00150000"
+  }
+]
 ```
 
 ### Scanner Operations
