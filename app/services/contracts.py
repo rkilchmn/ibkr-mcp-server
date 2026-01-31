@@ -23,7 +23,6 @@ class ContractClient(IBClient):
       exchange: str,
       primary_exchange: str | None = None,
       options: dict | None = None,
-      return_all: bool = True
     ) -> List[Dict[str, Any]]:
     """Get contract details for a given symbol.
 
@@ -75,7 +74,7 @@ class ContractClient(IBClient):
         **contract_params,
       )
 
-      contracts = await self.ib.qualifyContractsAsync(contract, returnAll=return_all)
+      contracts = await self.ib.qualifyContractsAsync(contract, returnAll=True)
       if not contracts or contracts[0] is None:
         return []
       else:

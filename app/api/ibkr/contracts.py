@@ -16,7 +16,6 @@ async def get_contract_details(
   exchange: str | None = None,
   primary_exchange: str | None = None,
   options: str | None = OPTIONS_QUERY,
-  return_all: bool = True
 ) -> str:
   """Get contract details for a given symbol.
 
@@ -51,7 +50,6 @@ async def get_contract_details(
       exchange=exchange,
       primary_exchange=primary_exchange,
       options=options_dict,
-      return_all=return_all,
     )
   except Exception as e:
     logger.error("Error in get_contract_details: {!s}", str(e))

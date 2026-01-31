@@ -306,7 +306,7 @@ Get detailed information about a contract.
 - `expiry`: Expiration date (YYYYMM or YYYYMMDD for options/futures)
 - `strike`: Strike price (for options)
 - `right`: Put or Call (for options)
-- `return_all`: default is 'true' and all possible contracts are returned. If 'false' only full qualified contract is returned or nothing if contract is ambiguous
+qualified contract is returned or nothing if contract is ambiguous
 **Example:**
 
 **Full qualified query**
