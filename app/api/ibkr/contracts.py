@@ -69,14 +69,17 @@ async def get_options_chain(
   underlying_symbol: str,
   underlying_sec_type: str,
   underlying_con_id: int,
+  exchange: str | None = None,
   filters: str | None = FILTERS_QUERY,
-) -> str:
+) -> dict:
   """Get options chain for a given underlying contract.
 
   Args:
     underlying_symbol (str): Symbol of the underlying contract.
     underlying_sec_type (str): Security type of the underlying contract.
     underlying_con_id (int): ConID of the underlying contract.
+    exchange (str | None): Exchange to filter chains by (e.g., SMART, CBOE).
+      If not specified and multiple chains are available, returns candidate chains.
     filters (str | None): filters as JSON string to apply to the options chain,
       you must specify at least one filter to reduce the number of options in the chain,
       you must specify expirations, you can specify tradingClass, strikes, and rights.
@@ -86,44 +89,48 @@ async def get_options_chain(
       - rights: List of rights to filter by.
 
   Returns:
-    str: A formatted string containing the options chain or error message
+    dict: A JSON response containing either:
+      - {"options_chain": [...]} when a single chain is found/selected
+      - {"candidate_chains": [...]} when multiple chain candidates are found
+      - {"error": "..."} when an error occurs
 
   Example:
     >>> get_options_chain(
-      underlying_symbol="SPX",
-      underlying_sec_type="IND",
-      underlying_con_id=416904,
+      underlying_symbol="CCJ",
+      underlying_sec_type="STK",
+      underlying_con_id=1447060,
+      exchange="SMART",
       filters='{
-        "tradingClass": ["SPXW"],
-        "expirations": ["20250505"],
-        "rights": ["C", "P"],
-        "strikes": [5490],
+        "tradingClass": ["CCJ"],
+        "expirations": ["20270206"],
+        "rights": ["C"],
+        "strikes": [120],
       }',
     )
-    "[
-      [
-      {"conId":771890640,"localSymbol":"SPXW  250505P06200000"},
-      {"conId":771890645,"localSymbol":"SPXW  250505P06400000"},
-      {"conId":771890655,"localSymbol":"SPXW  250505P06600000"},
-      {"conId":771890665,"localSymbol":"SPXW  250505P06800000"},
-      {"conId":771890685,"localSymbol":"SPXW  250505P07000000"},
-      {"conId":771890699,"localSymbol":"SPXW  250505P07200000"},
-      {"conId":771890709,"localSymbol":"SPXW  250505P07400000"},
-    ]"
+    {"options_chain": [
+      {"con_id":123456789,"symbol":"CCJ","sec_type":"OPT","last_trade_date_or_contract_month":"20270206","strike":120.0,"right":"C"}
+    ]}
 
   """
   try:
     logger.debug("Getting options chain for symbol: {symbol}", symbol=underlying_symbol)
     filters_dict = json.loads(filters) if filters else {}
-    options_chain = await ib_interface.get_options_chain(
-      underlying_symbol,
-      underlying_sec_type,
-      underlying_con_id,
-      filters_dict,
+    result = await ib_interface.get_options_chain(
+      underlying_symbol=underlying_symbol,
+      underlying_sec_type=underlying_sec_type,
+      underlying_con_id=underlying_con_id,
+      exchange=exchange,
+      filters=filters_dict,
     )
   except Exception as e:
     logger.error("Error in get_options_chain: {!s}", str(e))
-    return "Error getting options chain"
+    return {"error": "Error getting options chain"}
   else:
-    logger.debug("Options chain: {options_chain}", options_chain=options_chain)
-    return f"The available options contracts are: {options_chain}"
+    if isinstance(result, list) and result and "expirations" in result[0]:
+      # It's a list of candidate chains
+      logger.debug("Candidate chains found: {candidate_chains}", candidate_chains=result)
+      return {"candidate_chains": result}
+    else:
+      # It's an options chain
+      logger.debug("Options chain found: {options_chain}", options_chain=result)
+      return {"options_chain": result}
