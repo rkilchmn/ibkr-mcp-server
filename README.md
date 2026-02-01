@@ -410,32 +410,74 @@ curl -X GET "http://localhost:8000/ibkr/contract_details?symbol=CCJ&sec_type=STK
 Get options chain for a given underlying contract.
 
 **Query Parameters:**
-- `underlying_symbol`: Symbol of the underlying contract (e.g., AAPL)
+- `underlying_symbol`: Symbol of the underlying contract (e.g., CCJ)
 - `underlying_sec_type`: Security type of the underlying contract (e.g., STK)
-- `underlying_con_id`: ConID of the underlying contract (e.g., 265598)
+- `underlying_con_id`: ConID of the underlying contract (e.g., 1447060)
+- `exchange`: Exchange to filter chains by (e.g., SMART, CBOE). If not specified and multiple chains are available, returns candidate chains.
 - `filters`: Filters as JSON string to apply to the options chain (optional). You must specify at least one filter to reduce the number of options in the chain. You must specify expirations, you can specify tradingClass, strikes, and rights.
-  - `tradingClass`: List of trading classes to filter by (e.g., ["AAPL"])
-  - `expirations`: List of expirations to filter by (e.g., ["2027-01-15"])
-  - `strikes`: List of strikes to filter by (e.g., [150])
-  - `rights`: List of rights to filter by (e.g., ["C", "P"])
+  - `tradingClass`: List of trading classes to filter by (e.g., ["CCJ"])
+  - `expirations`: List of expirations to filter by (e.g., ["20270206"])
+  - `strikes`: List of strikes to filter by (e.g., [120])
+  - `rights`: List of rights to filter by (e.g., ["C"] for calls, ["P"] for puts)
 
-**Example:**
+**Returns:**
+- `options_chain`: List of option contracts when a single chain is found/selected
+- `candidate_chains`: List of chain candidates when multiple matches exist
+- `error`: Error message when the request fails
+
+**Example - Options Chain (single chain selected):**
+When the query is specific enough (e.g., includes exchange and filters), the options chain is returned:
 ```bash
-curl -X GET "http://localhost:8000/ibkr/options_chain?underlying_symbol=AAPL&underlying_sec_type=STK&underlying_con_id=265598&filters=%7B%22tradingClass%22%3A%5B%22AAPL%22%5D%2C%22expirations%22%3A%5B%222027-01-15%22%5D%2C%22rights%22%3A%5B%22C%22%2C%22P%22%5D%2C%22strikes%22%3A%5B150%5D%7D"
+curl -X GET "http://localhost:8000/ibkr/options_chain?underlying_symbol=CCJ&underlying_sec_type=STK&underlying_con_id=1447060&exchange=SMART&filters=%7B%22tradingClass%22%3A%5B%22CCJ%22%5D%2C%22expirations%22%3A%5B%2220270206%22%5D%2C%22rights%22%3A%5B%22C%22%5D%2C%22strikes%22%3A%5B120%5D%7D"
 ```
 
 **Response:**
 ```json
-[
-  {
-    "conId": 730295700,
-    "localSymbol": "AAPL  270115C00150000"
-  },
-  {
-    "conId": 730296451,
-    "localSymbol": "AAPL  270115P00150000"
-  }
-]
+{
+  "options_chain": [
+    {
+      "con_id": 123456789,
+      "symbol": "CCJ",
+      "sec_type": "OPT",
+      "last_trade_date_or_contract_month": "20270206",
+      "strike": 120.0,
+      "right": "C",
+      "multiplier": "100",
+      "exchange": "SMART",
+      "currency": "USD",
+      "local_symbol": "CCJ   270206C00120000",
+      "trading_class": "CCJ"
+    }
+  ]
+}
+```
+
+**Example - Candidate Chains (multiple chains available):**
+When multiple option chains exist for different exchanges and no exchange filter is provided:
+```bash
+curl -X GET "http://localhost:8000/ibkr/options_chain?underlying_symbol=CCJ&underlying_sec_type=STK&underlying_con_id=1447060"
+```
+
+**Response:**
+```json
+{
+  "candidate_chains": [
+    {
+      "exchange": "SMART",
+      "underlyingConId": 1447060,
+      "tradingClass": "CCJ",
+      "expirations": ["20250117", "20250221", "20250321", ...],
+      "strikes": [45.0, 50.0, 55.0, ...]
+    },
+    {
+      "exchange": "CBOE",
+      "underlyingConId": 1447060,
+      "tradingClass": "CCJ",
+      "expirations": ["20250117", "20250221", ...],
+      "strikes": [45.0, 50.0, 55.0, ...]
+    }
+  ]
+}
 ```
 
 ### Scanner Operations
