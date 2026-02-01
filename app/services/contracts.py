@@ -107,16 +107,16 @@ class ContractClient(IBClient):
           return [obj_to_dict_snake_case(c) for c in filtered]
         else:
           contracts = convert_df_columns_to_snake_case(util.df(contracts))
-          # contracts = contracts[[
-          #   "con_id",
-          #   "symbol",
-          #   "sec_type",
-          #   "exchange",
-          #   "primary_exchange",
-          #   "currency",
-          #   "local_symbol",
-          #   "multiplier",
-          # ]]
+          contracts = contracts[[
+            "con_id",
+            "symbol",
+            "sec_type",
+            "exchange",
+            "primary_exchange",
+            "currency",
+            "local_symbol",
+            "multiplier",
+          ]]
           return contracts.to_dict(orient="records")
 
     except Exception as e:
