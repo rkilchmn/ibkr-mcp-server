@@ -17,7 +17,7 @@ async def get_contract_details(
   primary_exchange: str | None = None,
   currency: str | None = None,
   options: str | None = OPTIONS_QUERY,
-) -> str:
+) -> dict:
   """Get contract details for a given symbol.
 
   Args:
@@ -32,20 +32,20 @@ async def get_contract_details(
       - tradingClass: for weekly options of SPX use SPXW
 
   Returns:
-    str: A formatted string containing the contract details or error message
+    dict: A JSON response containing either:
+      - {"qualified_contract": {...}} when a single matching contract is found
+      - {"candidate_contracts": [...]} when multiple contract candidates are found
+      - {"error": "..."} when an error occurs
 
   Example:
     >>> get_contract_details(symbol="AAPL", sec_type="STK", exchange="NASDAQ")
-    "The contract details for the symbol are:
-      {'symbol': 'AAPL',
-      'secType': 'STK',
-      'exchange': 'NASDAQ'}"
+    {"qualified_contract": {"symbol": "AAPL", "sec_type": "STK", "exchange": "NASDAQ"}}
 
   """
   try:
     logger.debug("Getting contract details for symbol: {symbol}", symbol=symbol)
     options_dict = json.loads(options) if options else {}
-    details = await ib_interface.get_contract_details(
+    result = await ib_interface.get_contract_details(
       symbol=symbol,
       sec_type=sec_type,
       exchange=exchange,
@@ -55,10 +55,14 @@ async def get_contract_details(
     )
   except Exception as e:
     logger.error("Error in get_contract_details: {!s}", str(e))
-    return "Error getting contract details"
+    return {"error": "Error getting contract details"}
   else:
-    logger.debug("Contract details: {details}", details=details)
-    return f"{details}"
+    if isinstance(result, list):
+      logger.debug("Candidate contracts found: {candidate_contracts}", candidate_contracts=result)
+      return {"candidate_contracts": result}
+    else:
+      logger.debug("Qualified contract found: {qualified_contract}", qualified_contract=result)
+      return {"qualified_contract": result}
 
 @ibkr_router.get("/options_chain", operation_id="get_options_chain")
 async def get_options_chain(

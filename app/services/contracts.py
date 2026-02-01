@@ -28,7 +28,7 @@ class ContractClient(IBClient):
       primary_exchange: str | None = None,
       currency: str | None = None,
       options: dict | None = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any] | List[Dict[str, Any]]:
     """Get contract details for a given symbol.
 
     Args:
@@ -55,7 +55,8 @@ class ContractClient(IBClient):
         - tradingClass: Trading class to get contract details for.
 
     Returns:
-        List of contract details for the given symbol.
+        Dict of contract details if a single matching contract is found,
+        or list of contract candidates if multiple matches are found.
 
     """
     try:
@@ -107,17 +108,18 @@ class ContractClient(IBClient):
           return [obj_to_dict_snake_case(c) for c in filtered]
         else:
           contracts = convert_df_columns_to_snake_case(util.df(contracts))
-          contracts = contracts[[
-            "con_id",
-            "symbol",
-            "sec_type",
-            "exchange",
-            "primary_exchange",
-            "currency",
-            "local_symbol",
-            "multiplier",
-          ]]
-          return contracts.to_dict(orient="records")
+          # contracts = contracts[[
+          #   "con_id",
+          #   "symbol",
+          #   "sec_type",
+          #   "exchange",
+          #   "primary_exchange",
+          #   "currency",
+          #   "local_symbol",
+          #   "multiplier",
+          # ]]
+          # Return single contract as dict
+          return contracts.iloc[0].to_dict()
 
     except Exception as e:
       logger.error("Error getting contract details: {}", str(e))
