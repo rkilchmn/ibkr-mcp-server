@@ -81,10 +81,11 @@ class ContractClient(IBClient):
         **contract_params,
       )
 
-      contracts = await self.ib.qualifyContractsAsync(contract, returnAll=True)
-      if not contracts or contracts[0] is None:
-        return []
-      else:
+      while True:
+        contracts = await self.ib.qualifyContractsAsync(contract, returnAll=True)
+        if not contracts or contracts[0] is None:
+          return []
+
         # contracts[0] is either a Contract or a list of Contracts (if ambiguous and returnAll=True)
         if isinstance(contracts[0], list):
           contract_list = contracts[0]
@@ -96,20 +97,26 @@ class ContractClient(IBClient):
             and (primary_exchange is None or c.primaryExchange == primary_exchange)
             and (currency is None or c.currency == currency)
           ]
+
+          # If we have exactly 1 match, re-qualify with that contract
+          if len(filtered) == 1:
+            contract = filtered[0]
+            continue
+
           # Convert Contract objects to dicts with snake_case keys
           return [obj_to_dict_snake_case(c) for c in filtered]
         else:
           contracts = convert_df_columns_to_snake_case(util.df(contracts))
-          contracts = contracts[[
-            "con_id",
-            "symbol",
-            "sec_type",
-            "exchange",
-            "primary_exchange",
-            "currency",
-            "local_symbol",
-            "multiplier",
-          ]]
+          # contracts = contracts[[
+          #   "con_id",
+          #   "symbol",
+          #   "sec_type",
+          #   "exchange",
+          #   "primary_exchange",
+          #   "currency",
+          #   "local_symbol",
+          #   "multiplier",
+          # ]]
           return contracts.to_dict(orient="records")
 
     except Exception as e:
