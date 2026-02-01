@@ -5,6 +5,10 @@ from ib_async import util
 from ib_async.contract import Contract, Option
 
 from app.core.setup_logging import logger
+from app.util.convert_to_snake_case import (
+  convert_df_columns_to_snake_case,
+  obj_to_dict_snake_case,
+)
 from .client import IBClient
 
 class ContractClient(IBClient):
@@ -22,6 +26,7 @@ class ContractClient(IBClient):
       sec_type: str,
       exchange: str,
       primary_exchange: str | None = None,
+      currency: str | None = None,
       options: dict | None = None,
     ) -> List[Dict[str, Any]]:
     """Get contract details for a given symbol.
@@ -42,6 +47,7 @@ class ContractClient(IBClient):
         - BATS: BATS
         - NASDAQ: NASDAQ
       primary_exchange: Primary exchange to get contract details for.
+      currency: Currency to get contract details for.
       options: Dictionary of options to get contract details for.
         - strike: Strike price to get contract details for.
         - right: Right to get contract details for.
@@ -70,6 +76,7 @@ class ContractClient(IBClient):
         symbol=symbol,
         exchange=exchange or '',
         primaryExchange=primary_exchange or '',
+        currency=currency or '',
         secType=sec_type,
         **contract_params,
       )
@@ -80,17 +87,27 @@ class ContractClient(IBClient):
       else:
         # contracts[0] is either a Contract or a list of Contracts (if ambiguous and returnAll=True)
         if isinstance(contracts[0], list):
-          return contracts[0]       
+          contract_list = contracts[0]
+          filtered = [
+            c
+            for c in contract_list
+            if c is not None
+            and (exchange is None or c.exchange == exchange)
+            and (primary_exchange is None or c.primaryExchange == primary_exchange)
+            and (currency is None or c.currency == currency)
+          ]
+          # Convert Contract objects to dicts with snake_case keys
+          return [obj_to_dict_snake_case(c) for c in filtered]
         else:
-          contracts = util.df(contracts)
+          contracts = convert_df_columns_to_snake_case(util.df(contracts))
           contracts = contracts[[
-            "conId",
+            "con_id",
             "symbol",
-            "secType",
+            "sec_type",
             "exchange",
-            "primaryExchange",
+            "primary_exchange",
             "currency",
-            "localSymbol",
+            "local_symbol",
             "multiplier",
           ]]
           return contracts.to_dict(orient="records")

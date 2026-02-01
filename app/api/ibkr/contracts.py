@@ -15,6 +15,7 @@ async def get_contract_details(
   sec_type: str,
   exchange: str | None = None,
   primary_exchange: str | None = None,
+  currency: str | None = None,
   options: str | None = OPTIONS_QUERY,
 ) -> str:
   """Get contract details for a given symbol.
@@ -49,6 +50,7 @@ async def get_contract_details(
       sec_type=sec_type,
       exchange=exchange,
       primary_exchange=primary_exchange,
+      currency=currency,
       options=options_dict,
     )
   except Exception as e:
