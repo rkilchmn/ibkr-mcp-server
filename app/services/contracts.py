@@ -5,7 +5,7 @@ from ib_async import util
 from ib_async.contract import Contract, Option
 
 from app.core.setup_logging import logger
-from app.util.convert_to_snake_case import (
+from app.util.convert_camel_to_snake_case import (
   convert_df_columns_to_snake_case,
   obj_to_dict_snake_case,
 )
