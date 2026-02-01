@@ -152,10 +152,10 @@ class ContractClient(IBClient):
     try:
       await self._connect()
       chains = await self.ib.reqSecDefOptParamsAsync(
-        underlying_symbol,
-        "",
-        underlying_sec_type,
-        underlying_con_id,
+        underlyingSymbol=underlying_symbol,
+        futFopExchange="",
+        underlyingSecType=underlying_sec_type,
+        underlyingConId=underlying_con_id,
       )
       chains = util.df(chains)
       chains = chains[[
