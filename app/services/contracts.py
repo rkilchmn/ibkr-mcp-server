@@ -186,14 +186,15 @@ class ContractClient(IBClient):
 
         # If we have multiple chains and no exchange filter, return candidates
         if len(filtered_chains) > 1 and exchange is None:
-          # Return list of candidate chains
-          return filtered_chains[[
+          # Return list of candidate chains with snake_case columns
+          candidate_chains = filtered_chains[[
             "exchange",
             "underlyingConId",
             "tradingClass",
             "expirations",
             "strikes",
-          ]].to_dict(orient="records")
+          ]]
+          return convert_df_columns_to_snake_case(candidate_chains).to_dict(orient="records")
 
         # If no chains match the exchange filter, return empty
         if len(filtered_chains) == 0:
