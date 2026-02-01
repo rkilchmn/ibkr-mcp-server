@@ -139,7 +139,7 @@ class ContractClient(IBClient):
       underlying_sec_type: Security type of the underlying contract.
       underlying_con_id: ConID of the underlying contract.
       filters: Dictionary of filters to apply to the options chain.
-        - tradingClass: List of trading classes to filter by.
+        - trading_class: List of trading classes to filter by.
         - expirations: List of expirations to filter by.
         - strikes: List of strikes to filter by.
         - rights: List of rights to filter by.
@@ -170,7 +170,7 @@ class ContractClient(IBClient):
         expirations = filters.get("expirations", chains["expirations"].iloc[0])
         strikes = filters.get("strikes", chains["strikes"].iloc[0])
         rights = filters.get("rights", ["C", "P"])
-        trading_classes = filters.get("tradingClass", chains["tradingClass"].unique())
+        trading_classes = filters.get("trading_class", chains["tradingClass"].unique())
       else:
         expirations = chains["expirations"].iloc[0]
         strikes = chains["strikes"].iloc[0]
@@ -179,7 +179,7 @@ class ContractClient(IBClient):
       contracts = [
         Option(
           symbol=underlying_symbol,
-          expiry=expiry,
+          lastTradeDateOrContractMonth=expiry,
           strike=strike,
           right=right,
           exchange="SMART",
@@ -193,7 +193,11 @@ class ContractClient(IBClient):
       try:
         contracts = await self.ib.qualifyContractsAsync(*contracts, returnAll=True)
         contracts = [c for c in contracts if c is not None]
-        contracts = util.df(contracts, labels=["conId", "localSymbol"])
+        contracts = convert_df_columns_to_snake_case(util.df(contracts, labels=[
+            "conId", "symbol", "secType", "lastTradeDateOrContractMonth",
+            "strike", "right", "multiplier", "exchange", "primaryExchange",
+            "currency", "localSymbol", "tradingClass"
+        ]))
       except Exception as e:
         logger.warning("Error qualifying contracts: {}", str(e))
         raise
