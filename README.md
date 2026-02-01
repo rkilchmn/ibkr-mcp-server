@@ -303,30 +303,107 @@ Get detailed information about a contract.
 - `exchange`: Exchange (e.g., SMART, ISLAND)
 - `primary_exchange`: Primary exchange (e.g., NASDAQ, NYSE)
 - `currency`: Currency (e.g., USD)
-- `expiry`: Expiration date (YYYYMM or YYYYMMDD for options/futures)
-- `strike`: Strike price (for options)
-- `right`: Put or Call (for options)
-qualified contract is returned or nothing if contract is ambiguous
-**Example:**
+- `options`: Optional parameters as JSON string including:
+  - `lastTradeDateOrContractMonth`: Expiry date for options - "YYYYMMDD"
+  - `strike`: Strike price (for options)
+  - `right`: Right for options - "C" or "P"
+  - `tradingClass`: Trading class (e.g., SPXW for weekly SPX options)
 
-**Full qualified query**
+**Returns:**
+- `qualified_contract`: A single contract dict when a unique match is found
+- `candidate_contracts`: A list of contract candidates when multiple matches exist
+- `error`: Error message when the request fails
+
+**Example - Qualified Contract (single match):**
+When the query is specific enough (e.g., includes currency), a single qualified contract is returned:
 ```bash
-curl -X GET "http://localhost:8000/ibkr/contract_details?symbol=AAPL&sec_type=STK&exchange=SMART&primary_exchange=NASDAQ&currency=USD"
+curl -X GET "http://localhost:8000/ibkr/contract_details?symbol=CCJ&sec_type=STK&exchange=SMART&currency=USD"
 ```
 
 **Response:**
 ```json
-[
-  {
-    "conId": 265598,
-    "symbol": "AAPL",
-    "secType": "STK",
+{
+  "qualified_contract": {
+    "sec_type": "STK",
+    "con_id": 1447060,
+    "symbol": "CCJ",
+    "last_trade_date_or_contract_month": "",
+    "strike": 0.0,
+    "right": "",
+    "multiplier": "",
     "exchange": "SMART",
+    "primary_exchange": "NYSE",
     "currency": "USD",
-    "localSymbol": "AAPL",
-    "multiplier": ""
+    "local_symbol": "CCJ",
+    "trading_class": "CCJ",
+    "include_expired": false,
+    "sec_id_type": "",
+    "sec_id": "",
+    "description": "",
+    "issuer_id": "",
+    "combo_legs_descrip": "",
+    "combo_legs": [],
+    "delta_neutral_contract": null
   }
-]
+}
+```
+
+**Example - Candidate Contracts (ambiguous match):**
+When the query is ambiguous (e.g., missing currency), multiple contract candidates are returned:
+```bash
+curl -X GET "http://localhost:8000/ibkr/contract_details?symbol=CCJ&sec_type=STK&exchange=SMART"
+```
+
+**Response:**
+```json
+{
+  "candidate_contracts": [
+    {
+      "sec_type": "STK",
+      "con_id": 1447060,
+      "symbol": "CCJ",
+      "last_trade_date_or_contract_month": "",
+      "strike": 0.0,
+      "right": "",
+      "multiplier": "",
+      "exchange": "SMART",
+      "primary_exchange": "NYSE",
+      "currency": "USD",
+      "local_symbol": "CCJ",
+      "trading_class": "CCJ",
+      "include_expired": false,
+      "sec_id_type": "",
+      "sec_id": "",
+      "description": "",
+      "issuer_id": "",
+      "combo_legs_descrip": "",
+      "combo_legs": [],
+      "delta_neutral_contract": null
+    },
+    {
+      "sec_type": "STK",
+      "con_id": 81540716,
+      "symbol": "CCJ",
+      "last_trade_date_or_contract_month": "",
+      "strike": 0.0,
+      "right": "",
+      "multiplier": "",
+      "exchange": "SMART",
+      "primary_exchange": "FWB2",
+      "currency": "EUR",
+      "local_symbol": "CCJ",
+      "trading_class": "XETRA",
+      "include_expired": false,
+      "sec_id_type": "",
+      "sec_id": "",
+      "description": "",
+      "issuer_id": "",
+      "combo_legs_descrip": "",
+      "combo_legs": [],
+      "delta_neutral_contract": null
+    }
+  ]
+}
 ```
 
 #### `GET /ibkr/options_chain`

@@ -195,11 +195,12 @@ class ContractClient(IBClient):
       try:
         contracts = await self.ib.qualifyContractsAsync(*contracts, returnAll=True)
         contracts = [c for c in contracts if c is not None]
-        contracts = convert_df_columns_to_snake_case(util.df(contracts, labels=[
-            "conId", "symbol", "secType", "lastTradeDateOrContractMonth",
-            "strike", "right", "multiplier", "exchange", "primaryExchange",
-            "currency", "localSymbol", "tradingClass"
-        ]))
+        # contracts = convert_df_columns_to_snake_case(util.df(contracts, labels=[
+        #     "conId", "symbol", "secType", "lastTradeDateOrContractMonth",
+        #     "strike", "right", "multiplier", "exchange", "primaryExchange",
+        #     "currency", "localSymbol", "tradingClass"
+        # ]))
+        contracts = convert_df_columns_to_snake_case(util.df(contracts))
       except Exception as e:
         logger.warning("Error qualifying contracts: {}", str(e))
         raise
