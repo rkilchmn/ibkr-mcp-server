@@ -23,12 +23,14 @@ class TickData(BaseModel):
   symbol: str = Field(..., description="Symbol")
   contract_id: int | None = Field(None, description="Contract ID")
   last: float | None = Field(None, description="Last price")
+  close: float | None = Field(None, description="Close price")
   bid: float | None = Field(None, description="Bid price")
   ask: float | None = Field(None, description="Ask price")
   bid_size: int | None = Field(None, description="Bid size")
   ask_size: int | None = Field(None, description="Ask size")
   volume: int | None = Field(None, description="Volume")
   timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="Timestamp")
+  market_data_type: int | None = Field(None, description="Market data type")
 
   @field_validator('last', 'bid', 'ask')
   @classmethod
