@@ -231,6 +231,10 @@ async def get_market_data_snapshot(
   exchange: str = Query(default="SMART", description="Exchange"),
   currency: str = Query(default="USD", description="Currency"),
   con_id: int | None = Query(default=None, description="Contract ID (optional)"),
+  market_data_subscription_type: str = Query(
+    default="realtime",
+    description="Market data subscription type (realtime or delayed)"
+  ),
 ) -> TickData | None:
   """Get real-time market data snapshot.
   
@@ -267,7 +271,8 @@ async def get_market_data_snapshot(
       sec_type=sec_type,
       exchange=exchange,
       currency=currency,
-      con_id=con_id
+      con_id=con_id,
+      market_data_subscription_type=market_data_subscription_type,
     )
     return tick_data
   except Exception as e:

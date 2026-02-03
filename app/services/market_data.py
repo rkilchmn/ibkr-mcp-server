@@ -8,6 +8,7 @@ from ib_async.contract import Contract
 
 from .client import IBClient
 from .contracts import ContractClient
+from app.api.ibkr.ib_constants import LIVE, FROZEN, DELAYED, DELAYED_FROZEN
 from app.core.setup_logging import logger
 from app.models import TickerData, GreeksData, BarData, TickData
 
@@ -20,10 +21,34 @@ class MarketDataClient(IBClient):
     self.contract_client = ContractClient()
     self.contract_client.ib = self.ib
 
-  def _is_market_open(self) -> bool:
+  def _is_market_open(self, exchange : str = 'NYSE') -> bool:
       """Check if the market is open."""
-      nyse = ecals.get_calendar("NYSE")
-      return nyse.is_trading_minute(dt.datetime.now(dt.UTC))
+      try:
+        calendar = ecals.get_calendar(exchange)
+        return calendar.is_trading_minute(dt.datetime.now(dt.UTC))
+      except Exception as e:
+        logger.error(f"Error checking market status: {e}")
+        return False
+
+  def _valid_value(self, value, value_type: type):
+    """Validate and convert a value to the specified type.
+    
+    Args:
+      value: The value to validate
+      value_type: The type to convert to (float or int)
+      
+    Returns:
+      The valid value as the specified type
+      None: If the value cannot be converted or is invalid (nan, inf, etc.)
+    """
+    if not value:
+      return None
+    if str(value).lower() in ['nan', 'inf', '-inf', '-1']:
+      return None
+    try:
+      return value_type(value)
+    except (ValueError, TypeError):
+      return None
 
   def _process_tickers(self, tickers: list[dict]) -> list[TickerData]:
     """Process tickers to extract required fields."""
@@ -92,10 +117,10 @@ class MarketDataClient(IBClient):
       # First attempt to get tickers
       if self._is_market_open():
         logger.debug("Market is open, requesting live market data")
-        self.ib.reqMarketDataType(1)
+        self.ib.reqMarketDataType(LIVE)
       else:
         logger.debug("Market is closed, requesting delayed market data")
-        self.ib.reqMarketDataType(2)
+        self.ib.reqMarketDataType(DELAYED)
       tickers = await self.ib.reqTickersAsync(*qualified_contracts)
 
       # Process tickers
@@ -116,9 +141,9 @@ class MarketDataClient(IBClient):
 
         # Second attempt
         if self._is_market_open():
-          self.ib.reqMarketDataType(1)
+          self.ib.reqMarketDataType(LIVE)
         else:
-          self.ib.reqMarketDataType(2)
+          self.ib.reqMarketDataType(DELAYED)
         tickers = await self.ib.reqTickersAsync(*qualified_contracts)
 
         # Process tickers again
@@ -342,7 +367,8 @@ class MarketDataClient(IBClient):
       sec_type: str = "STK",
       exchange: str = "SMART",
       currency: str = "USD",
-      con_id: int | None = None
+      con_id: int | None = None,
+      market_data_subscription_type: str = "realtime"
     ) -> TickData | None:
     """Get real-time market data snapshot.
     
@@ -375,77 +401,78 @@ class MarketDataClient(IBClient):
         raise Exception(f"Could not qualify contract: {symbol}")
       
       ib_contract = qualified_contracts[0]
+
+      if market_data_subscription_type.lower() == "realtime":
+        market_data_type = LIVE
+      else:
+        market_data_type = DELAYED
+
+      # Determine the exchange to check for market open status
+      primary_exchange = ib_contract.primaryExchange or ib_contract.exchange or None
+      # Set market data type based on market status and subscription type
+      if not self._is_market_open(primary_exchange):
+        market_data_type += 1 # make it FROZEN
+      self.ib.reqMarketDataType(market_data_type)
       
       # Request market data snapshot
-      ticker = self.ib.reqMktData(ib_contract, '', True, False)
+      ticker = self.ib.reqMktData(
+        contract=ib_contract,
+        genericTickList='',
+        snapshot=True,
+        regulatorySnapshot=False
+      )
       
-      # Wait for data to be populated
-      await asyncio.sleep(0.5)
+
+      """
+      Wait for a ticker to stabilize:
+      - Exits after `max_consecutive` intervals with no update
+      - Stops if `timeout` seconds elapse
+      Returns the last usable price (last or close) and a flag if timeout occurred
+      """
+      interval = 1
+      max_consecutive = 5
+      timeout = 10.0
+      loop = asyncio.get_event_loop()
+      start = loop.time()
+      consecutive_timeouts = 0
+      timed_out = False
+
+      while True:
+          # Create a future to wait for the update event
+          future = asyncio.get_event_loop().create_future()
+          # Use updateEvent.wait() which accepts a future and sets it when event fires
+          try:
+              await asyncio.wait_for(ticker.updateEvent.wait(future), timeout=interval)
+              ticker.updateEvent.clear()
+              consecutive_timeouts = 0  # reset counter on any update
+          except asyncio.TimeoutError:
+              consecutive_timeouts += 1
+              if consecutive_timeouts >= max_consecutive:
+                break
+
+          # check overall timeout
+          elapsed = asyncio.get_event_loop().time() - start
+          if elapsed >= timeout:
+              timed_out = True
+              break
       
-      # Extract data with NaN handling
-      last = None
-      bid = None
-      ask = None
-      bid_size = None
-      ask_size = None
-      volume = None
-      
-      if ticker:
-        # Check last price
-        if ticker.last and str(ticker.last).lower() not in ['nan', 'inf', '-inf']:
-          try:
-            last = float(ticker.last)
-          except (ValueError, TypeError):
-            pass
-        
-        # Check bid
-        if ticker.bid and str(ticker.bid).lower() not in ['nan', 'inf', '-inf']:
-          try:
-            bid = float(ticker.bid)
-          except (ValueError, TypeError):
-            pass
-        
-        # Check ask
-        if ticker.ask and str(ticker.ask).lower() not in ['nan', 'inf', '-inf']:
-          try:
-            ask = float(ticker.ask)
-          except (ValueError, TypeError):
-            pass
-        
-        # Check bid size
-        if hasattr(ticker, 'bidSize') and ticker.bidSize:
-          try:
-            bid_size = int(ticker.bidSize)
-          except (ValueError, TypeError):
-            pass
-        
-        # Check ask size
-        if hasattr(ticker, 'askSize') and ticker.askSize:
-          try:
-            ask_size = int(ticker.askSize)
-          except (ValueError, TypeError):
-            pass
-        
-        # Check volume
-        if hasattr(ticker, 'volume') and ticker.volume:
-          try:
-            volume = int(ticker.volume)
-          except (ValueError, TypeError):
-            pass
-        
+      if not ticker.timestamp:
+        logger.warning(f"No valid price data available for {symbol}")
+        raise Exception(f"No valid price data available for {symbol}. Subscription may not be available, try to use delayed data")
+      else:
         return TickData(
           symbol=symbol,
           contract_id=ib_contract.conId if hasattr(ib_contract, 'conId') else None,
-          last=last,
-          bid=bid,
-          ask=ask,
-          bid_size=bid_size,
-          ask_size=ask_size,
-          volume=volume
+          last=self._valid_value(ticker.last, float),
+          close=self._valid_value(ticker.close, float),
+          bid=self._valid_value(ticker.bid, float),
+          ask=self._valid_value(ticker.ask, float),
+          bid_size=self._valid_value(ticker.bidSize, int),
+          ask_size=self._valid_value(ticker.askSize, int),
+          volume=self._valid_value(ticker.volume, int),
+          market_data_type=ticker.marketDataType,
+          timestamp=ticker.time.isoformat()
         )
-      
-      return None
-      
     except Exception as e:
       logger.error(f"Failed to get market data: {e}")
       raise Exception(f"Market data error: {e}")
