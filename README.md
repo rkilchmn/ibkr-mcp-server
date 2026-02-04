@@ -485,30 +485,50 @@ curl "http://localhost:8000/ibkr/options_chain?underlying_symbol=CCJ&underlying_
 {
   "options_chain": [
     {
+      "sec_type": "OPT",
       "con_id": 123456789,
       "symbol": "CCJ",
-      "sec_type": "OPT",
       "last_trade_date_or_contract_month": "20260213",
       "strike": 120.0,
       "right": "C",
       "multiplier": "100",
       "exchange": "SMART",
+      "primary_exchange": "",
       "currency": "USD",
       "local_symbol": "CCJ   260213C00120000",
-      "trading_class": "CCJ"
+      "friendly_symbol": "CCJ Feb13'26 120.0 CALL",
+      "trading_class": "CCJ",
+      "include_expired": false,
+      "sec_id_type": "",
+      "sec_id": "",
+      "description": "",
+      "issuer_id": "",
+      "combo_legs_descrip": "",
+      "combo_legs": [],
+      "delta_neutral_contract": null
     },
     {
+      "sec_type": "OPT",
       "con_id": 123456790,
       "symbol": "CCJ",
-      "sec_type": "OPT",
       "last_trade_date_or_contract_month": "20260213",
       "strike": 122.0,
       "right": "C",
       "multiplier": "100",
       "exchange": "SMART",
+      "primary_exchange": "",
       "currency": "USD",
       "local_symbol": "CCJ   260213C00122000",
-      "trading_class": "CCJ"
+      "friendly_symbol": "CCJ Feb13'26 122.0 CALL",
+      "trading_class": "CCJ",
+      "include_expired": false,
+      "sec_id_type": "",
+      "sec_id": "",
+      "description": "",
+      "issuer_id": "",
+      "combo_legs_descrip": "",
+      "combo_legs": [],
+      "delta_neutral_contract": null
     }
   ]
 }
