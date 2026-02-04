@@ -21,6 +21,10 @@ class Config(BaseSettings):
   ib_command_server_port: int = 7462
   ib_gateway_tradingmode: str = "paper"
 
+  # Timeout configuration (in seconds)
+  ib_connection_timeout: int = 20
+  ib_request_timeout: int = 10
+
 
 class ConfigManager:
   """Singleton class to manage the global config."""

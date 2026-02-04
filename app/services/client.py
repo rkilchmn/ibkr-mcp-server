@@ -27,10 +27,10 @@ class IBClient:
         host=host,
         port=port,
         clientId=dt.datetime.now(dt.UTC).strftime("%H%M%S"),
-        timeout=20,
+        timeout=self.config.ib_connection_timeout,
         readonly=False,
       )
-      self.ib.RequestTimeout = 20
+      self.ib.RequestTimeout = self.config.ib_request_timeout
     except Exception as e:
       logger.error("Error connecting to IB: {}", e)
       raise
