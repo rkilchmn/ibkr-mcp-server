@@ -139,7 +139,7 @@ class ContractClient(IBClient):
     Args:
       underlying_symbol: Symbol of the underlying contract.
       underlying_sec_type: Security type of the underlying contract.
-      underlying_con_id: ConID of the underlying contract.
+      underlying_con_id: Contract ID of the underlying contract.
       exchange: Exchange to filter chains by (e.g., SMART, CBOE). If not specified
         and multiple chains are available, returns a list of candidate chains.
       filters: Dictionary of filters to apply to the options chain.
@@ -149,101 +149,91 @@ class ContractClient(IBClient):
         - rights: List of rights to filter by.
 
     Returns:
-      Dict of options contracts if a single chain is found/selected,
+      Dict of options contracts if a qualified,single chain is found and a filter to reduce the number of options is provided
       or list of candidate chains if multiple matches are found.
 
     """
     try:
       await self._connect()
 
-      while True:
-        chains = await asyncio.wait_for(
-          self.ib.reqSecDefOptParamsAsync(
-            underlyingSymbol=underlying_symbol,
-            futFopExchange="",
-            underlyingSecType=underlying_sec_type,
-            underlyingConId=underlying_con_id,
-          ),
-          timeout=self.config.ib_request_timeout,
-        )
+      chains = await asyncio.wait_for(
+        self.ib.reqSecDefOptParamsAsync(
+          underlyingSymbol=underlying_symbol,
+          futFopExchange="",
+          underlyingSecType=underlying_sec_type,
+          underlyingConId=underlying_con_id,
+        ),
+        timeout=self.config.ib_request_timeout,
+      )
 
-        if not chains:
-          return []
+      if not chains:
+        return []
 
-        # Convert to DataFrame for easier handling
-        chains_df = util.df(chains)
-        if chains_df is None or chains_df.empty:
-          return []
+      # Convert to DataFrame for easier handling
+      chains_df = util.df(chains)
+      if chains_df is None or chains_df.empty:
+        return []
 
-        # Filter chains by exchange if specified
-        if exchange is not None:
-          filtered_chains = chains_df[chains_df["exchange"] == exchange]
-        else:
-          filtered_chains = chains_df
-
-        # If we have exactly 1 chain, use it
-        if len(filtered_chains) == 1:
-          selected_chain = filtered_chains.iloc[0]
-          break
-
-        # If we have multiple chains and no exchange filter, return candidates
-        if len(filtered_chains) > 1 and exchange is None:
-          # Return list of candidate chains with or ke_case columns
-          candidate_chains = filtered_chains[[
-            "exchange",
-            "underlyingConId",
-            "tradingClass",
-            "expirations",
-            "strikes",
-          ]]
-          return convert_df_columns_to_snake_case(candidate_chains).to_dict(orient="records")
-
-        # If no chains match the exchange filter, return empty
-        if len(filtered_chains) == 0:
-          return []
-
-      # We have a single selected chain, extract its data
-      trading_classes = [selected_chain["tradingClass"]]
-      expirations = selected_chain["expirations"]
-      strikes = selected_chain["strikes"]
-
-      # Apply filters if provided
-      if filters:
-        if "trading_class" in filters:
-          trading_classes = [tc for tc in trading_classes if tc in filters["trading_class"]]
-        if "expirations" in filters:
-          expirations = [e for e in expirations if e in filters["expirations"]]
-        if "strikes" in filters:
-          strikes = [s for s in strikes if s in filters["strikes"]]
-        rights = filters.get("rights", ["C", "P"])
+      # Filter chains by exchange if specified
+      if exchange is not None:
+        filtered_chains = chains_df[chains_df["exchange"] == exchange]
       else:
-        rights = ["C", "P"]
+        filtered_chains = chains_df   
+      
+      if len(filtered_chains) == 1 and filters: 
+        # If we have exactly 1 chain and a filters are specified, generate contracts
+        # if no filters, the overall number of contracts can be huge, so we prevent that
+        qualified_chain = filtered_chains.iloc[0]
 
-      # Generate option contracts using data from selected chain
-      contracts = [
-        Option(
-          symbol=underlying_symbol,
-          lastTradeDateOrContractMonth=expiry,
-          strike=strike,
-          right=right,
-          exchange=selected_chain["exchange"],
-          tradingClass=selected_chain["tradingClass"],
-        )
-        for right in rights
-        for strike in strikes
-        for expiry in expirations
-        for trading_class in trading_classes
-      ]
+        if not filters:
+          raise Exception("Filters are required to reduce the number of contracts.")
+        else:
+          trading_classes = qualified_chain["tradingClass"]
+          expirations = qualified_chain["expirations"]
+          strikes = qualified_chain["strikes"]
+          if "trading_class" in filters:
+            trading_classes = [tc for tc in trading_classes if tc in filters["trading_class"]]
+          if "expirations" in filters:
+            expirations = [e for e in expirations if e in filters["expirations"]]
+          if "strikes" in filters:
+            strikes = [s for s in strikes if s in filters["strikes"]]
+          rights = filters.get("rights", ["C", "P"])
 
-      try:
-        contracts = await self.ib.qualifyContractsAsync(*contracts, returnAll=True)
-        contracts = [c for c in contracts if c is not None]
-        contracts = convert_df_columns_to_snake_case(util.df(contracts))
-        return contracts.to_dict(orient="records")
-      except Exception as e:
-        logger.warning("Error qualifying contracts: {}", str(e))
-        raise
+          # Generate option contracts using data from selected chain
+          contracts = [
+            Option(
+              symbol=underlying_symbol,
+              lastTradeDateOrContractMonth=expiry,
+              strike=strike,
+              right=right,
+              exchange=qualified_chain["exchange"],
+              tradingClass=qualified_chain["tradingClass"],
+            )
+            for right in rights
+            for strike in strikes
+            for expiry in expirations
+            for trading_class in trading_classes
+          ]
+
+          try:
+            contracts = await self.ib.qualifyContractsAsync(*contracts, returnAll=True)
+            contracts = [c for c in contracts if c is not None]
+            contracts = convert_df_columns_to_snake_case(util.df(contracts))
+            return contracts.to_dict(orient="records")
+          except Exception as e:
+            logger.warning("Error qualifying contracts: {}", str(e))
+            raise
+      else:
+        # Return list of candidate chains
+        candidate_chains = filtered_chains[[
+          "exchange",
+          "underlyingConId",
+          "tradingClass",
+          "expirations",
+          "strikes",
+        ]]
+        return convert_df_columns_to_snake_case(candidate_chains).to_dict(orient="records")
 
     except Exception as e:
       logger.error("Error getting options chain: {}", str(e))
-      raise
+      raise e
