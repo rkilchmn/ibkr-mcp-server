@@ -413,22 +413,71 @@ Get options chain for a given underlying contract.
 - `underlying_symbol`: Symbol of the underlying contract (e.g., CCJ)
 - `underlying_sec_type`: Security type of the underlying contract (e.g., STK)
 - `underlying_con_id`: ConID of the underlying contract (e.g., 1447060)
-- `exchange`: Exchange to filter chains by (e.g., SMART, CBOE). If not specified and multiple chains are available, returns candidate chains.
-- `filters`: Filters as JSON string to apply to the options chain (optional). You must specify at least one filter to reduce the number of options in the chain. You must specify expirations, you can specify tradingClass, strikes, and rights.
-  - `tradingClass`: List of trading classes to filter by (e.g., ["CCJ"])
+- `exchange`: Exchange to filter chains by (e.g., SMART, CBOE). If not specified and multiple chains are available, returns a list of candidate chains.
+- `filters`: Dictionary of filters to apply to the options chain (optional). You must specify at least one filter (including expirations) to reduce the number of options in the chain.
+  - `trading_class`: List of trading classes to filter by (e.g., ["CCJ"])
   - `expirations`: List of expirations to filter by (e.g., ["20270206"])
   - `strikes`: List of strikes to filter by (e.g., [120])
   - `rights`: List of rights to filter by (e.g., ["C"] for calls, ["P"] for puts)
 
 **Returns:**
-- `options_chain`: List of option contracts when a single chain is found/selected
-- `candidate_chains`: List of chain candidates when multiple matches exist
+- `options_chain`: List of option contracts when a single chain is found and filters are provided
+- `candidate_chains`: List of candidate chains when multiple matches exist or no filters are provided
 - `error`: Error message when the request fails
 
-**Example - Options Chain (single chain selected):**
-When the query is specific enough (e.g., includes exchange and filters), the options chain is returned:
+**Example 1 - Multiple Candidate Chains (no exchange specified):**
+When no exchange is specified and multiple option chains exist for different exchanges:
 ```bash
-curl -X GET "http://localhost:8000/ibkr/options_chain?underlying_symbol=CCJ&underlying_sec_type=STK&underlying_con_id=1447060&exchange=SMART&filters=%7B%22tradingClass%22%3A%5B%22CCJ%22%5D%2C%22expirations%22%3A%5B%2220270206%22%5D%2C%22rights%22%3A%5B%22C%22%5D%2C%22strikes%22%3A%5B120%5D%7D"
+curl "http://localhost:8000/ibkr/options_chain?underlying_symbol=CCJ&underlying_sec_type=STK&underlying_con_id=1447060"
+```
+
+**Response:**
+```json
+{
+  "candidate_chains": [
+    {
+      "exchange": "BOX",
+      "underlying_con_id": "1447060",
+      "trading_class": "CCJ",
+      "expirations": ["20260206", "20260213", "20260220", "20260227", "20260306", "20260313", "20260320", "20260618", "20260918", "20261218", "20270115", "20280121"],
+      "strikes": [20.0, 23.0, 25.0, 28.0, 30.0, 33.0, 35.0, 38.0, 40.0, 42.0, 45.0, 47.0, 50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 79.0, 80.0, 81.0, 82.0, 83.0, 84.0, 85.0, 86.0, 87.0, 88.0, 89.0, 90.0, 91.0, 92.0, 93.0, 94.0, 95.0, 96.0, 97.0, 98.0, 99.0, 100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0, 111.0, 112.0, 113.0, 114.0, 115.0, 116.0, 117.0, 118.0, 119.0, 120.0, 121.0, 122.0, 123.0, 124.0, 125.0, 126.0, 127.0, 128.0, 129.0, 130.0, 131.0, 132.0, 133.0, 134.0, 135.0, 136.0, 137.0, 138.0, 139.0, 140.0, 141.0, 142.0, 143.0, 144.0, 145.0, 146.0, 147.0, 148.0, 149.0, 150.0, 152.5, 155.0, 157.5, 160.0, 162.5, 165.0, 170.0, 175.0, 180.0, 185.0, 190.0, 195.0]
+    },
+    {
+      "exchange": "NASDAQOM",
+      "underlying_con_id": "1447060",
+      "trading_class": "CCJ",
+      "expirations": ["20260206", "20260213", "20260220", "20260227", "20260306", "20260313", "20260320", "20260618", "20260918", "20261218", "20270115", "20280121"],
+      "strikes": [20.0, 23.0, 25.0, 28.0, 30.0, 33.0, 35.0, 38.0, 40.0, 42.0, 45.0, 47.0, 50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 79.0, 80.0, 81.0, 82.0, 83.0, 84.0, 85.0, 86.0, 87.0, 88.0, 89.0, 90.0, 91.0, 92.0, 93.0, 94.0, 95.0, 96.0, 97.0, 98.0, 99.0, 100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0, 111.0, 112.0, 113.0, 114.0, 115.0, 116.0, 117.0, 118.0, 119.0, 120.0, 121.0, 122.0, 123.0, 124.0, 125.0, 126.0, 127.0, 128.0, 129.0, 130.0, 131.0, 132.0, 133.0, 134.0, 135.0, 136.0, 137.0, 138.0, 139.0, 140.0, 141.0, 142.0, 143.0, 144.0, 145.0, 146.0, 147.0, 148.0, 149.0, 150.0, 152.5, 155.0, 157.5, 160.0, 162.5, 165.0, 170.0, 175.0, 180.0, 185.0, 190.0, 195.0]
+    }
+  ]
+}
+```
+
+**Example 2 - Single Candidate Chain (exchange specified, but no filters):**
+When an exchange is specified but no filters are provided (filters are required to return specific option contracts):
+```bash
+curl "http://localhost:8000/ibkr/options_chain?underlying_symbol=CCJ&underlying_sec_type=STK&underlying_con_id=1447060&exchange=SMART"
+```
+
+**Response:**
+```json
+{
+  "candidate_chains": [
+    {
+      "exchange": "SMART",
+      "underlying_con_id": "1447060",
+      "trading_class": "CCJ",
+      "expirations": ["20260206", "20260213", "20260220", "20260227", "20260306", "20260313", "20260320", "20260618", "20260918", "20261218", "20270115", "20280121"],
+      "strikes": [20.0, 23.0, 25.0, 28.0, 30.0, 33.0, 35.0, 38.0, 40.0, 42.0, 45.0, 47.0, 50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 79.0, 80.0, 81.0, 82.0, 83.0, 84.0, 85.0, 86.0, 87.0, 88.0, 89.0, 90.0, 91.0, 92.0, 93.0, 94.0, 95.0, 96.0, 97.0, 98.0, 99.0, 100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0, 111.0, 112.0, 113.0, 114.0, 115.0, 116.0, 117.0, 118.0, 119.0, 120.0, 121.0, 122.0, 123.0, 124.0, 125.0, 126.0, 127.0, 128.0, 129.0, 130.0, 131.0, 132.0, 133.0, 134.0, 135.0, 136.0, 137.0, 138.0, 139.0, 140.0, 141.0, 142.0, 143.0, 144.0, 145.0, 146.0, 147.0, 148.0, 149.0, 150.0, 152.5, 155.0, 157.5, 160.0, 162.5, 165.0, 170.0, 175.0, 180.0, 185.0, 190.0, 195.0]
+    }
+  ]
+}
+```
+
+**Example 3 - Options Chain (exchange and filters provided):**
+When both an exchange is specified and filters are provided, specific option contracts are returned:
+```bash
+curl "http://localhost:8000/ibkr/options_chain?underlying_symbol=CCJ&underlying_sec_type=STK&underlying_con_id=1447060&exchange=SMART&filters=%7B%22expirations%22%3A%5B%2220260213%22%5D%2C%22strikes%22%3A%5B120%2C122%5D%2C%22rights%22%3A%5B%22C%22%5D%7D"
 ```
 
 **Response:**
@@ -439,42 +488,27 @@ curl -X GET "http://localhost:8000/ibkr/options_chain?underlying_symbol=CCJ&unde
       "con_id": 123456789,
       "symbol": "CCJ",
       "sec_type": "OPT",
-      "last_trade_date_or_contract_month": "20270206",
+      "last_trade_date_or_contract_month": "20260213",
       "strike": 120.0,
       "right": "C",
       "multiplier": "100",
       "exchange": "SMART",
       "currency": "USD",
-      "local_symbol": "CCJ   270206C00120000",
+      "local_symbol": "CCJ   260213C00120000",
       "trading_class": "CCJ"
-    }
-  ]
-}
-```
-
-**Example - Candidate Chains (multiple chains available):**
-When multiple option chains exist for different exchanges and no exchange filter is provided:
-```bash
-curl -X GET "http://localhost:8000/ibkr/options_chain?underlying_symbol=CCJ&underlying_sec_type=STK&underlying_con_id=1447060"
-```
-
-**Response:**
-```json
-{
-  "candidate_chains": [
-    {
-      "exchange": "SMART",
-      "underlyingConId": 1447060,
-      "tradingClass": "CCJ",
-      "expirations": ["20250117", "20250221", "20250321", ...],
-      "strikes": [45.0, 50.0, 55.0, ...]
     },
     {
-      "exchange": "CBOE",
-      "underlyingConId": 1447060,
-      "tradingClass": "CCJ",
-      "expirations": ["20250117", "20250221", ...],
-      "strikes": [45.0, 50.0, 55.0, ...]
+      "con_id": 123456790,
+      "symbol": "CCJ",
+      "sec_type": "OPT",
+      "last_trade_date_or_contract_month": "20260213",
+      "strike": 122.0,
+      "right": "C",
+      "multiplier": "100",
+      "exchange": "SMART",
+      "currency": "USD",
+      "local_symbol": "CCJ   260213C00122000",
+      "trading_class": "CCJ"
     }
   ]
 }
