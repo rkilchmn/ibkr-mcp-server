@@ -329,7 +329,7 @@ class MarketDataClient(IBClient):
           barSizeSetting=bar_size,
           whatToShow=what_to_show,
           useRTH=use_rth,
-          timeout=30  # 30 second timeout
+          timeout=self.config.ib_request_timeout
         )
         
         if not bars:
@@ -430,8 +430,8 @@ class MarketDataClient(IBClient):
       Returns the last usable price (last or close) and a flag if timeout occurred
       """
       interval = 1
-      max_consecutive = 5
-      timeout = 10.0
+      timeout = self.config.ib_request_timeout
+      max_consecutive = int(timeout / interval)
       loop = asyncio.get_event_loop()
       start = loop.time()
       consecutive_timeouts = 0
@@ -447,7 +447,7 @@ class MarketDataClient(IBClient):
               consecutive_timeouts = 0  # reset counter on any update
           except asyncio.TimeoutError:
               consecutive_timeouts += 1
-              if consecutive_timeouts >= max_consecutive:
+              if ticker.timestamp or consecutive_timeouts >= max_consecutive:
                 break
 
           # check overall timeout

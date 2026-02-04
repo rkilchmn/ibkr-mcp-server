@@ -164,7 +164,7 @@ class ContractClient(IBClient):
             underlyingSecType=underlying_sec_type,
             underlyingConId=underlying_con_id,
           ),
-          timeout=10,
+          timeout=self.config.ib_request_timeout,
         )
 
         if not chains:
@@ -188,7 +188,7 @@ class ContractClient(IBClient):
 
         # If we have multiple chains and no exchange filter, return candidates
         if len(filtered_chains) > 1 and exchange is None:
-          # Return list of candidate chains with snake_case columns
+          # Return list of candidate chains with or ke_case columns
           candidate_chains = filtered_chains[[
             "exchange",
             "underlyingConId",

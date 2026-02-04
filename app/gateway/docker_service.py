@@ -50,7 +50,7 @@ class IBKRGatewayDockerService:
     self._health_check_semaphore = asyncio.Semaphore(1)
     self._last_health_check = 0
     self._health_check_interval = 2
-    self._connection_timeout = 30
+    self._connection_timeout = config.ib_connection_timeout
 
   async def start_gateway(self) -> bool:
     """Start the IBKR Gateway container."""
