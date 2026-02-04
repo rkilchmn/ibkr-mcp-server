@@ -8,15 +8,15 @@ class GreeksData(BaseModel):
   gamma: float | None = Field(None, description="Gamma value")
   vega: float | None = Field(None, description="Vega value")
   theta: float | None = Field(None, description="Theta value")
-  impliedVol: float | None = Field(None, description="Implied volatility")
+  implied_vol: float | None = Field(None, description="Implied volatility")
 
 
 class TickerData(BaseModel):
   """Model for ticker data."""
 
-  contractId: int = Field(..., description="Contract ID")
+  contract_id: int = Field(..., description="Contract ID")
   symbol: str = Field(..., description="Symbol")
-  secType: str = Field(..., description="Security type")
+  sec_type: str = Field(..., description="Security type")
   last: float | None = Field(None, description="Last price")
   bid: float | None = Field(None, description="Bid price")
   ask: float | None = Field(None, description="Ask price")

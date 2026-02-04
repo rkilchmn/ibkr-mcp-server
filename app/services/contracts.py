@@ -1,4 +1,5 @@
 """Contract operations."""
+import asyncio
 from typing import List, Dict, Any
 
 from ib_async import util
@@ -156,14 +157,15 @@ class ContractClient(IBClient):
       await self._connect()
 
       while True:
-        chains = await self.ib.reqSecDefOptParamsAsync(
-          underlyingSymbol=underlying_symbol,
-          futFopExchange="",
-          underlyingSecType=underlying_sec_type,
-          underlyingConId=underlying_con_id,
+        chains = await asyncio.wait_for(
+          self.ib.reqSecDefOptParamsAsync(
+            underlyingSymbol=underlying_symbol,
+            futFopExchange="",
+            underlyingSecType=underlying_sec_type,
+            underlyingConId=underlying_con_id,
+          ),
+          timeout=10,
         )
-
-        #  new comment to test kilo
 
         if not chains:
           return []
