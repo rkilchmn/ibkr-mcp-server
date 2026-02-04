@@ -30,7 +30,7 @@ class PositionClient(IBClient):
           logger.warning(f"Invalid multiplier {row['contract'].localSymbol}, using 1")
           return row["avgCost"]
 
-      positions["contractId"] = positions["contract"].apply(lambda x: x.conId)
+      positions["contract_id"] = positions["contract"].apply(lambda x: x.conId)
       positions["avgCost"] = positions.apply(safe_cost_calculation, axis=1)
       positions["contract"] = positions["contract"].apply(lambda x: x.localSymbol)
 

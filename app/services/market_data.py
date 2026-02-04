@@ -53,9 +53,9 @@ class MarketDataClient(IBClient):
   def _process_tickers(self, tickers: list[dict]) -> list[TickerData]:
     """Process tickers to extract required fields."""
     result = util.df(tickers)
-    result["contractId"] = result["contract"].apply(lambda x: x.conId)
+    result["contract_id"] = result["contract"].apply(lambda x: x.conId)
     result["symbol"] = result["contract"].apply(lambda x: x.localSymbol)
-    result["secType"] = result["contract"].apply(lambda x: x.secType)
+    result["sec_type"] = result["contract"].apply(lambda x: x.secType)
     result["last"] = result["last"].astype(float)
     result["bid"] = result["bid"].astype(float)
     result["ask"] = result["ask"].astype(float)
@@ -65,9 +65,9 @@ class MarketDataClient(IBClient):
     ticker_list = []
     for _, row in result.iterrows():
       ticker_data = TickerData(
-        contractId=row["contractId"],
+        contract_id=row["contract_id"],
         symbol=row["symbol"],
-        secType=row["secType"],
+        sec_type=row["sec_type"],
         last=row["last"] if pd.notna(row["last"]) else None,
         bid=row["bid"] if pd.notna(row["bid"]) else None,
         ask=row["ask"] if pd.notna(row["ask"]) else None,
@@ -83,7 +83,7 @@ class MarketDataClient(IBClient):
     Only extract greeks for options contracts, use modelGreeks.
     """
     if (
-      ticker.secType == "OPT" and
+      ticker.sec_type == "OPT" and
       hasattr(ticker, "modelGreeks") and
       ticker.modelGreeks
     ):
@@ -92,7 +92,7 @@ class MarketDataClient(IBClient):
         gamma=ticker.modelGreeks.gamma,
         vega=ticker.modelGreeks.vega,
         theta=ticker.modelGreeks.theta,
-        impliedVol=ticker.modelGreeks.impliedVol,
+        implied_vol=ticker.modelGreeks.impliedVol,
       )
     return None
 
@@ -127,7 +127,7 @@ class MarketDataClient(IBClient):
       result = self._process_tickers(tickers)
 
       # Check if we got any greeks data (only for options contracts)
-      options_contracts = [ticker for ticker in result if ticker.secType == "OPT"]
+      options_contracts = [ticker for ticker in result if ticker.sec_type == "OPT"]
       has_greeks = False
       if options_contracts:
         has_greeks = any(ticker.greeks for ticker in options_contracts)
@@ -149,7 +149,7 @@ class MarketDataClient(IBClient):
         # Process tickers again
         result = self._process_tickers(tickers)
         # Check if we got greeks data after restart (only for options)
-        options_contracts = [ticker for ticker in result if ticker.secType == "OPT"]
+        options_contracts = [ticker for ticker in result if ticker.sec_type == "OPT"]
         has_greeks = False
         if options_contracts:
           has_greeks = any(ticker.greeks for ticker in options_contracts)
@@ -247,9 +247,9 @@ class MarketDataClient(IBClient):
       filtered_tickers = []
       for _, row in filtered_data.iterrows():
         ticker_data = TickerData(
-          contractId=row["contractId"],
+          contract_id=row["contract_id"],
           symbol=row["symbol"],
-          secType=row["secType"],
+          sec_type=row["sec_type"],
           last=row["last"] if pd.notna(row["last"]) else None,
           bid=row["bid"] if pd.notna(row["bid"]) else None,
           ask=row["ask"] if pd.notna(row["ask"]) else None,

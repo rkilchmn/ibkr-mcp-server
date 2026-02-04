@@ -12,7 +12,7 @@ async def get_positions() -> list[dict]:
 
   Example:
     >>> get_positions()
-    [0:{"contract":"AAPL","position":100,"avgCost":150.25,"contractId":123456}]
+    [0:{"contract":"AAPL","position":100,"avg_cost":150.25,"contract_id":123456}]
 
   """
   try:
