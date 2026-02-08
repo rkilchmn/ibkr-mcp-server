@@ -259,6 +259,8 @@ class ContractClient(IBClient):
 
           try:
             contracts = await self.ib.qualifyContractsAsync(*contracts, returnAll=True)
+            if len(contracts) == 0:
+              raise Exception("No contracts found for the given filters.")
             contracts = [c for c in contracts if c is not None]
             contracts_df = convert_df_columns_to_snake_case(util.df(contracts))
 
