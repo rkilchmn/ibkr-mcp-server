@@ -22,5 +22,5 @@ class TickerData(BaseModel):
   bid: float | None = Field(None, description="Bid price")
   ask: float | None = Field(None, description="Ask price")
   greeks: GreeksData | None = Field(None, description="Greeks data for options")
-  timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="Timestamp")
+  timestamp: str | None = Field(default=None, description="Timestamp")
   market_data_type: int | None = Field(None, description="Market data type")
