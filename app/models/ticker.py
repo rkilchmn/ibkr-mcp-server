@@ -1,4 +1,5 @@
 """Pydantic models for ticker data."""
+from datetime import datetime
 from pydantic import BaseModel, Field
 
 class GreeksData(BaseModel):
@@ -21,3 +22,5 @@ class TickerData(BaseModel):
   bid: float | None = Field(None, description="Bid price")
   ask: float | None = Field(None, description="Ask price")
   greeks: GreeksData | None = Field(None, description="Greeks data for options")
+  timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="Timestamp")
+  market_data_type: int | None = Field(None, description="Market data type")

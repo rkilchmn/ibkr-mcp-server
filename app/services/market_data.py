@@ -60,6 +60,8 @@ class MarketDataClient(IBClient):
     result["bid"] = result["bid"].astype(float)
     result["ask"] = result["ask"].astype(float)
     result["greeks"] = result.apply(self._greek_extraction, axis=1)
+    result["timestamp"] = result["time"].apply(lambda x: x.isoformat() if x else None)
+    result["market_data_type"] = result["marketDataType"]
 
     # Convert DataFrame to list of Pydantic models
     ticker_list = []
@@ -72,6 +74,8 @@ class MarketDataClient(IBClient):
         bid=self._valid_value(row.get("bid"), float),
         ask=self._valid_value(row.get("ask"), float),
         greeks=row["greeks"],
+        timestamp=row["timestamp"],
+        market_data_type=row["market_data_type"],
       )
       ticker_list.append(ticker_data)
 
@@ -246,15 +250,22 @@ class MarketDataClient(IBClient):
       # Convert filtered DataFrame to list of Pydantic models
       filtered_tickers = []
       for _, row in filtered_data.iterrows():
-        ticker_data = TickerData(
-          contract_id=row["contract_id"],
-          symbol=row["symbol"],
-          sec_type=row["sec_type"],
-          last=row["last"] if pd.notna(row["last"]) else None,
-          bid=row["bid"] if pd.notna(row["bid"]) else None,
-          ask=row["ask"] if pd.notna(row["ask"]) else None,
-          greeks=row["greeks"],
-        )
+        ticker_kwargs = {
+          "contract_id": row["contract_id"],
+          "symbol": row["symbol"],
+          "sec_type": row["sec_type"],
+          "last": row["last"] if pd.notna(row["last"]) else None,
+          "bid": row["bid"] if pd.notna(row["bid"]) else None,
+          "ask": row["ask"] if pd.notna(row["ask"]) else None,
+          "greeks": row["greeks"],
+        }
+        # Only add timestamp if it exists and is not None
+        if pd.notna(row.get("timestamp")):
+          ticker_kwargs["timestamp"] = row["timestamp"]
+        # Only add market_data_type if it exists and is not None
+        if pd.notna(row.get("market_data_type")):
+          ticker_kwargs["market_data_type"] = row["market_data_type"]
+        ticker_data = TickerData(**ticker_kwargs)
         filtered_tickers.append(ticker_data)
 
       # Return as list of dictionaries
