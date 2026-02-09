@@ -74,7 +74,7 @@ class MarketDataClient(IBClient):
         bid=self._valid_value(row.get("bid"), float),
         ask=self._valid_value(row.get("ask"), float),
         greeks=row["greeks"],
-        timestamp=row["timestamp"],
+        timestamp=row["timestamp"] or "",
         market_data_type=row["market_data_type"],
       )
       ticker_list.append(ticker_data)
