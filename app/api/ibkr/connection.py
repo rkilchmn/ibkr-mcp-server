@@ -19,14 +19,14 @@ async def get_connection_status() -> ConnectionStatus:
     Connection status including host, port, connected state, and accounts
     
   Example:
-    >>> await get_connection_status()
     {
       "connected": true,
       "host": "localhost",
       "port": 8888,
-      "client_id": "103045",
+      "client_id": 0,
       "accounts": ["DU123456"]
     }
+
   """
   try:
     logger.debug("Getting connection status")

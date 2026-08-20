@@ -339,13 +339,6 @@ async def get_scanner_results(
     str: A formatted string containing the scanner results or error message
 
   Example:
-    >>> get_scanner_results(
-      instrument_code="STK",
-      location_code="STK.US",
-      scan_code="TOP_PERC_GAIN",
-      filters="priceAbove=10,marketCapAbove1e6=1000",
-      max_results=25
-    )
     "I found 3 stocks matching the scanner parameters: ['AAPL', 'MSFT', 'GOOGL']"
 
   """
