@@ -109,6 +109,7 @@ async def get_and_filter_options_chain(
   underlying_symbol: str,
   underlying_sec_type: str,
   underlying_con_id: int,
+  exchange: str | None = None,
   filters: str | None = FILTERS_QUERY,
   criteria: str | None = CRITERIA_QUERY,
 ) -> list[MarketData]:
@@ -118,6 +119,7 @@ async def get_and_filter_options_chain(
     underlying_symbol: Symbol of the underlying contract.
     underlying_sec_type: Security type of the underlying contract.
     underlying_con_id: ConID of the underlying contract.
+    exchange: Exchange to filter chains by (e.g., SMART, CBOE).
     filters: Filters as JSON string to apply to the options chain,
     you must specify at least one filter to reduce the number of options in the chain,
       you must specify expirations, you can specify trading_class, strikes, and rights.
@@ -169,8 +171,9 @@ async def get_and_filter_options_chain(
       underlying_symbol,
       underlying_sec_type,
       underlying_con_id,
-      filters_dict,
-      criteria_dict,
+      exchange=exchange,
+      filters=filters_dict,
+      criteria=criteria_dict,
     )
   except json.JSONDecodeError as e:
     logger.error("Error parsing JSON parameters: {!s}", str(e))

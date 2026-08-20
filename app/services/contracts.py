@@ -310,5 +310,6 @@ class ContractClient(IBClient):
         return convert_df_columns_to_snake_case(candidate_chains).to_dict(orient="records")
 
     except Exception as e:
-      logger.error("Error getting options chain: {}", str(e))
+      import traceback
+      logger.error("Error getting options chain: {}\n{}", str(e), traceback.format_exc())
       raise e
