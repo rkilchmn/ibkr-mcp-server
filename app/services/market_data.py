@@ -46,12 +46,14 @@ class MarketDataClient(IBClient):
         if "CLOSED" in session:
           return None
         
-        # Extract the hours part (format: "YYYYMMDD:HHMM-HHMM")
+        # Extract the hours part (format may be "YYYYMMDD:HHMM-HHMM" or "YYYYMMDD:HHMM-YYYYMMDD:HHMM")
         if ':' in session:
-          _, hours = session.split(':')
+          _, hours = session.split(':', 1)
           if '-' in hours:
-            _, close_time = hours.split('-')
-            return close_time.strip()
+            close_time = hours.split('-')[-1].strip()
+            if ':' in close_time:
+              close_time = close_time.split(':')[-1]
+            return close_time
     
     return None
 
