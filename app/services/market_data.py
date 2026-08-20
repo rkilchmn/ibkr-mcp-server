@@ -221,8 +221,7 @@ class MarketDataClient(IBClient):
       
       # Request streaming data for all qualified contracts
       # Generic ticks: 221=mark price, 165=52-week high/low, 106=opt implied vol, 104=hist vol, 100=opt volume, 101=opt open interest
-      # generic_tick_list = "221,165,106,104,100,101"
-      generic_tick_list = "221"
+      generic_tick_list = "221,165,106,104,100,101"
       tickers = [self.ib.reqMktData(contract, genericTickList=generic_tick_list) for contract in qualified_contracts]
 
       try:
@@ -332,6 +331,7 @@ class MarketDataClient(IBClient):
       underlying_symbol: str,
       underlying_sec_type: str,
       underlying_con_id: int,
+      exchange: str | None = None,
       filters: dict | None = None,
       criteria: dict | None = None,
     ) -> list[dict]:
@@ -364,17 +364,22 @@ class MarketDataClient(IBClient):
         underlying_symbol,
         underlying_sec_type,
         underlying_con_id,
-        filters,
+        exchange=exchange,
+        filters=filters,
       )
       options_chain_df = pd.DataFrame(options_chain)
 
       # Get market data for all options
+      if options_chain_df.empty:
+        logger.warning("Empty options chain")
+        return []
+      contract_ids = options_chain_df["con_id"].tolist()
       market_data = await self.get_tickers(
         symbol=underlying_symbol,
         sec_type=underlying_sec_type,
         exchange="",
         currency="",
-        contract_ids=options_chain_df["conId"].tolist()
+        contract_ids=contract_ids
       )
 
       if not market_data:

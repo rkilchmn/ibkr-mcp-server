@@ -60,4 +60,28 @@ def read_root() -> dict:
 
 # MCP server, attached to the FastAPI app
 mcp = FastApiMCP(app, exclude_tags=["root"])
+
+# Patch MCP tool schemas to accept dicts for filters/criteria instead of strings
+for tool in mcp.tools:
+    if tool.name in ("get_options_chain", "get_filtered_options_chain"):
+        props = tool.inputSchema.get("properties", {})
+        if "filters" in props:
+            props["filters"] = {
+                "anyOf": [
+                    {"type": "object"},
+                    {"type": "null"},
+                ],
+                "description": "Filters as a dict (e.g., {'trading_class': ['SPXW'], 'expirations': ['20250505'], 'strikes': [5490], 'rights': ['C']})",
+                "title": "filters",
+            }
+        if "criteria" in props:
+            props["criteria"] = {
+                "anyOf": [
+                    {"type": "object"},
+                    {"type": "null"},
+                ],
+                "description": "Criteria as a dict (e.g., {'min_delta': -0.06, 'max_delta': -0.04})",
+                "title": "criteria",
+            }
+
 mcp.mount()
