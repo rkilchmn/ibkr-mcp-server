@@ -35,15 +35,22 @@ A FastAPI application that provides an MCP (Model Context Protocol) server for I
    ```
 
 3. **Run the server:**
-   ```bash
-   python main.py --ib-gateway-username=$YOUR_USERNAME --ib-gateway-password=$YOUR_PASSWORD
-   ```
+    ```bash
+    ./run.sh
+    ```
+    
+    Or manually:
+    ```bash
+    uv run python main.py --ib-gateway-tradingmode=paper
+    ```
+    
+    Credentials are loaded from the `.env` file.
 
 The server will start on `http://localhost:8000` with API docs at `/docs`. MCP server will be available at `http://localhost:8000/mcp`.
 
 4. ** Troubleshoot **
 
-You can use http://localhost:6080/ for browser based VLC
+You can use http://localhost:6080/ for browser based VNC
 
 ## API Documentation
 
@@ -126,19 +133,38 @@ curl -X GET "http://localhost:8000/ibkr/account/positions"
 ```json
 [
   {
-    "contract_id": 12345678,
+    "account": "DU123456",
     "symbol": "AAPL",
-    "position": 100,
-    "average_cost": 150.25,
-    "market_price": 155.75,
-    "market_value": 15575.00,
-    "unrealized_pnl": 550.00,
-    "realized_pnl": 0.00,
-    "asset_class": "STK",
-    "expiry": null,
-    "strike": null,
-    "right": null,
-    "multiplier": 1.0
+    "sec_type": "STK",
+    "exchange": "NASDAQ",
+    "currency": "USD",
+    "position": 100.0,
+    "avg_cost": 150.25,
+    "market_price": 155.50,
+    "market_value": 15550.00,
+    "unrealized_pnl": 525.00,
+    "realized_pnl": null,
+    "contract_id": 265598
+  }
+]
+```
+
+#### `GET /ibkr/account/values`
+Get all account values.
+
+**Example:**
+```bash
+curl -X GET "http://localhost:8000/ibkr/account/values"
+```
+
+**Response:**
+```json
+[
+  {
+    "account": "DU123456",
+    "key": "CashBalance",
+    "value": "50000.00",
+    "currency": "USD"
   }
 ]
 ```
@@ -151,15 +177,16 @@ Place a new order.
 **Request Body:**
 ```json
 {
-  "contract_id": 12345678,
-  "order_type": "LMT",
-  "action": "BUY",
-  "quantity": 10,
-  "limit_price": 150.25,
-  "time_in_force": "DAY",
-  "tif": "20241231 23:59:59",
-  "outside_rth": false,
-  "transmit": true
+  "contract": {
+    "con_id": 12345678
+  },
+  "order": {
+    "action": "BUY",
+    "total_quantity": 10,
+    "order_type": "LMT",
+    "lmt_price": 150.25,
+    "time_in_force": "DAY"
+  }
 }
 ```
 
@@ -168,15 +195,16 @@ Place a new order.
 curl -X POST "http://localhost:8000/ibkr/orders/place" \
   -H "Content-Type: application/json" \
   -d '{
-    "contract_id": 12345678,
-    "order_type": "LMT",
-    "action": "BUY",
-    "quantity": 10,
-    "limit_price": 150.25,
-    "time_in_force": "DAY",
-    "tif": "20241231 23:59:59",
-    "outside_rth": false,
-    "transmit": true
+    "contract": {
+      "con_id": 12345678
+    },
+    "order": {
+      "action": "BUY",
+      "total_quantity": 10,
+      "order_type": "LMT",
+      "lmt_price": 150.25,
+      "time_in_force": "DAY"
+    }
   }'
 ```
 
@@ -185,16 +213,45 @@ curl -X POST "http://localhost:8000/ibkr/orders/place" \
 {
   "order_id": 987654321,
   "status": "Submitted",
-  "filled_quantity": 0,
-  "remaining_quantity": 10,
-  "average_fill_price": 0.0,
-  "last_fill_price": 0.0,
-  "error_message": null
+  "symbol": "AAPL",
+  "action": "BUY",
+  "quantity": 10.0,
+  "filled": 0.0,
+  "remaining": 10.0,
+  "avg_fill_price": null
 }
 ```
 
 #### `DELETE /ibkr/orders/{order_id}`
 Cancel an existing order.
+
+#### `GET /ibkr/orders/open`
+Get all open orders.
+
+**Example:**
+```bash
+curl -X GET "http://localhost:8000/ibkr/orders/open"
+```
+
+**Response:**
+```json
+[
+  {
+    "order_id": 1,
+    "symbol": "AAPL",
+    "sec_type": "STK",
+    "action": "BUY",
+    "quantity": 100.0,
+    "order_type": "LMT",
+    "status": "Submitted",
+    "limit_price": 150.00,
+    "aux_price": null,
+    "filled": 0.0,
+    "remaining": 100.0,
+    "avg_fill_price": null
+  }
+]
+```
 
 **Path Parameters:**
 - `order_id`: The ID of the order to cancel
@@ -219,14 +276,14 @@ curl -X DELETE "http://localhost:8000/ibkr/orders/987654321"
 Get historical market data.
 
 **Query Parameters:**
-- `contract_id`: (Optional) The IBKR contract ID. Recommended for better performance - avoids symbol lookup
-- `symbol`: (Optional) The ticker symbol. Required if contract_id not provided
+- `contract_id`: (Optional) Exactly one IBKR contract ID. Recommended for better performance - avoids symbol lookup
+- `symbol`: (Optional) The ticker symbol. Required if `contract_id` not provided
 - `sec_type`: Security type (e.g., "STK", "OPT", "FUT") - used with symbol
-- `exchange": Exchange (e.g., "SMART", "ISLAND") - used with symbol
-- `currency": Currency (e.g., "USD")
+- `exchange`: Exchange (e.g., "SMART", "ISLAND") - used with symbol
+- `currency`: Currency (e.g., "USD")
 - `duration`: Data duration (e.g., "1 D", "1 W", "1 M", "1 Y")
 - `bar_size`: Bar size (e.g., "1 min", "5 mins", "1 hour", "1 day")
-- `what_to_show": Data type (e.g., "TRADES", "MIDPOINT", "BID", "ASK")
+- `what_to_show`: Data type (e.g., "TRADES", "MIDPOINT", "BID", "ASK")
 - `use_rth`: Use regular trading hours only (true/false)
 - `end_date`: (Optional) End date for historical data. Formats:
   - Date only: `YYYYMMDD` (e.g., `20260223`) - converted to `YYYYMMDD 15:59:00 {timezone}`
@@ -280,7 +337,7 @@ Get real-time market data for a symbol or contract IDs.
 
 **Query Parameters:**
 - `symbol`: Symbol to get data for (e.g., AAPL)
-- `contract_ids`: (Optional) List of IBKR contract IDs
+- `contract_ids`: (Optional) One or more IBKR contract IDs. Pass multiple times for multiple contracts, e.g., `?contract_ids=265598&contract_ids=123456`
 - `sec_type`: Security type (e.g., STK, OPT, FUT) - used with symbol (default: STK)
 - `exchange`: Exchange (e.g., SMART, ISLAND) - used with symbol (default: SMART)
 - `currency`: Currency (e.g., USD) - used with symbol (default: USD)
@@ -291,6 +348,11 @@ Get real-time market data for a symbol or contract IDs.
 **Example with symbol:**
 ```bash
 curl -X GET "http://localhost:8000/ibkr/market_data?symbol=AAPL&subscription_type=delayed" -H "Accept: application/json"
+```
+
+**Example with contract_ids:**
+```bash
+curl -X GET "http://localhost:8000/ibkr/market_data?contract_ids=265598&contract_ids=123456"
 ```
 
 **Response:**
@@ -333,7 +395,7 @@ Get detailed information about a contract.
 - `primary_exchange`: Primary exchange (e.g., NASDAQ, NYSE)
 - `currency`: Currency (e.g., USD)
 - `options`: Optional parameters as JSON string including:
-  - `lastTradeDateOrContractMonth`: Expiry date for options - "YYYYMMDD"
+  - `last_trade_date_or_contract_month`: Expiry date for options - "YYYYMMDD"
   - `strike`: Strike price (for options)
   - `right`: Right for options - "C" or "P"
   - `trading_class`: Trading class (e.g., SPXW for weekly SPX options)
@@ -703,55 +765,65 @@ curl "http://localhost:8000/ibkr/options_chain?underlying_symbol=CCJ&underlying_
 
 ### Scanner Operations
 
+#### `GET /ibkr/scanner/workflow`
+Get step-by-step workflow for using scanner effectively.
+
+**Example:**
+```bash
+curl -X GET "http://localhost:8000/ibkr/scanner/workflow"
+```
+
+#### `GET /ibkr/scanner/instrument_codes`
+Get available scanner instrument codes with descriptions.
+
+**Example:**
+```bash
+curl -X GET "http://localhost:8000/ibkr/scanner/instrument_codes"
+```
+
+#### `GET /ibkr/scanner/location_codes`
+Get available scanner location codes with descriptions.
+
+**Example:**
+```bash
+curl -X GET "http://localhost:8000/ibkr/scanner/location_codes"
+```
+
+#### `GET /ibkr/scanner/scan_codes`
+Get available scanner scan codes with descriptions.
+
+**Example:**
+```bash
+curl -X GET "http://localhost:8000/ibkr/scanner/scan_codes"
+```
+
+#### `GET /ibkr/scanner/filter_codes`
+Get available scanner filter codes with examples and usage hints.
+
+**Example:**
+```bash
+curl -X GET "http://localhost:8000/ibkr/scanner/filter_codes"
+```
+
 #### `GET /ibkr/scanner/results`
 Run a market scanner with specified parameters.
 
 **Query Parameters:**
-- `instrument`: Instrument type (e.g., "STK", "FUT", "OPT")
-- `location_code`: Location code (e.g., "STK.US.MAJOR")
-- `filter_codes`: Comma-separated filter codes (e.g., "priceAbove5,volume_avg_1000")
-- `above_price`: Filter for price above
-- `below_price`: Filter for price below
-- `above_volume`: Filter for volume above
-- `market_cap_above`: Filter for market cap above
-- `market_cap_below`: Filter for market cap below
+- `instrument_code`: Instrument type (e.g., "STK", "FUT", "OPT"). Call `get_scanner_instrument_codes()` first.
+- `location_code`: Location code (e.g., "STK.US", "STK.EU"). Call `get_scanner_location_codes()` first.
+- `scan_code`: Scan code for predefined scans (e.g., "TOP_PERC_GAIN", "MOST_ACTIVE"). Call `get_scanner_scan_codes()` first. Must submit `scan_code`; "MOST_ACTIVE" is a good default.
+- `filters`: Comma-separated filters in `parameter=value` format to fine-tune `scan_code` results. Call `get_scanner_filter_codes()` first.
+  - Examples: `priceAbove=10,marketCapAbove1e6=1000` or `priceAbove=10,avgVolumeAbove=1000000`
+- `max_results`: Maximum number of results to return (1-50, default: 50)
 
 **Example:**
 ```bash
-curl -X GET "http://localhost:8000/ibkr/scanner/results?instrument=STK&location_code=STK.US.MAJOR"
+curl -X GET "http://localhost:8000/ibkr/scanner/results?instrument_code=STK&location_code=STK.US&scan_code=TOP_PERC_GAIN&max_results=25"
 ```
 
 **Response:**
 ```json
-{
-  "scan_results": [
-    {
-      "contract_id": 12345678,
-      "symbol": "AAPL",
-      "sec_type": "STK",
-      "exchange": "SMART",
-      "last_price": 155.75,
-      "change_percent": 0.81,
-      "volume": 1250000,
-      "market_cap": 2500000000000,
-      "pe_ratio": 28.5,
-      "sector": "Technology"
-    },
-    {
-      "contract_id": 23456789,
-      "symbol": "MSFT",
-      "sec_type": "STK",
-      "exchange": "SMART",
-      "last_price": 330.25,
-      "change_percent": 0.45,
-      "volume": 980000,
-      "market_cap": 2450000000000,
-      "pe_ratio": 32.1,
-      "sector": "Technology"
-    }
-  ],
-  "scan_time": "2025-10-05T10:20:15Z"
-}
+"I found 3 stocks matching the scanner parameters: ['AAPL', 'MSFT', 'GOOGL']"
 ```
 
 ### Connection Management
@@ -768,11 +840,10 @@ curl -X GET "http://localhost:8000/ibkr/connection/status"
 ```json
 {
   "connected": true,
+  "host": "localhost",
+  "port": 8888,
   "client_id": 0,
-  "server_version": "10.19",
-  "connection_time": "2025-10-05T09:00:00Z",
-  "connection_status": "Connected",
-  "connection_status_message": "TWS Connection OK"
+  "accounts": ["DU123456"]
 }
 ```
 

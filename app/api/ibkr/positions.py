@@ -11,8 +11,15 @@ async def get_positions() -> list[dict]:
     list[dict]: A list of dictionaries containing the positions for the accounts.
 
   Example:
-    >>> get_positions()
-    [0:{"contract":"AAPL","position":100,"avg_cost":150.25,"contract_id":123456}]
+    [
+      {
+        "account": "DU123456",
+        "symbol": "AAPL",
+        "position": 100.0,
+        "avg_cost": 150.25,
+        "contract_id": 123456
+      }
+    ]
 
   """
   try:

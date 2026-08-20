@@ -34,7 +34,7 @@ async def get_market_data(
   resolve the contract ID first.
 
   Args:
-    contract_ids: A list of contract IDs, a single contract ID, or None.
+    contract_ids: One or more contract IDs. Pass a single int or a list of ints.
     symbol: Symbol to get data for (optional if contract_ids is provided)
     sec_type: Security type (used with symbol, default: STK)
     exchange: Exchange (used with symbol, default: SMART)
@@ -45,7 +45,7 @@ async def get_market_data(
     List[MarketData]: A list of market data for the contract IDs.
 
   Example:
-    >>> curl -X GET "http://localhost:8000/ibkr/market_data?symbol=AAPL&subscription_type=delayed"
+    >>> await get_market_data(symbol="AAPL", subscription_type="delayed")
     [
       {
         "contract_id": 265598,
@@ -120,35 +120,20 @@ async def get_and_filter_options_chain(
     underlying_sec_type: Security type of the underlying contract.
     underlying_con_id: ConID of the underlying contract.
     exchange: Exchange to filter chains by (e.g., SMART, CBOE).
-    filters: Filters as JSON string to apply to the options chain,
-    you must specify at least one filter to reduce the number of options in the chain,
-      you must specify expirations, you can specify trading_class, strikes, and rights.
-        - trading_class: List of trading classes to filter by.
-      - expirations: List of expirations to filter by.
-      - strikes: List of strikes to filter by.
-      - rights: List of rights to filter by.
-    criteria: Criteria as JSON string to filter by.
-      - min_delta: Minimum delta value (float)
-      - max_delta: Maximum delta value (float)
+    filters: Filters as a dict (e.g., {"trading_class": ["SPXW"], "expirations": ["20250505"], "strikes": [5490], "rights": ["C"]}) or null.
+    criteria: Criteria as a dict (e.g., {"min_delta": -0.06, "max_delta": -0.04}) or null.
 
   Returns:
     list[MarketData]: A list of filtered market data for options.
 
   Example:
-    await get_and_filter_options(
-      underlying_symbol="SPX",
-      underlying_sec_type="IND",
-      underlying_con_id=416904,
-      filters='{
-        "trading_class": ["SPXW"],
-        "expirations": ["20250505"],
-        "strikes": [5490],
-        "rights": ["C", "P"],
-      }',
-      criteria='{"min_delta": -0.06, "max_delta": -0.04}',
-    )
     [
-      MarketData(symbol='SPXW 250505P05490000', last=45.50, greeks=GreeksData(delta=-0.05)), #noqa: E501
+      {
+        "contract_id": 891797951,
+        "symbol": "SPXW 250505P05490000",
+        "sec_type": "OPT",
+        "greeks": {"delta": -0.05, "gamma": 0.01, "vega": 0.03, "theta": -0.02, "implied_vol": 0.20}
+      }
     ]
 
   """

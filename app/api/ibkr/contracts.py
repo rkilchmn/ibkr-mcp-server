@@ -38,8 +38,14 @@ async def get_contract_details(
       - {"error": "..."} when an error occurs
 
   Example:
-    >>> get_contract_details(symbol="AAPL", sec_type="STK", exchange="NASDAQ")
-    {"qualified_contract": {"symbol": "AAPL", "sec_type": "STK", "exchange": "NASDAQ"}}
+    {
+      "qualified_contract": {
+        "symbol": "AAPL",
+        "sec_type": "STK",
+        "exchange": "NASDAQ",
+        "con_id": 265598
+      }
+    }
 
   """
   try:
@@ -80,7 +86,7 @@ async def get_options_chain(
     underlying_con_id (int): ConID of the underlying contract.
     exchange (str | None): Exchange to filter chains by (e.g., SMART, CBOE).
       If not specified and multiple chains are available, returns candidate chains.
-    filters (str | None): filters as JSON string to apply to the options chain,
+    filters (dict | None): Dictionary of filters to apply to the options chain,
       you must specify at least one filter to reduce the number of options in the chain,
       you must specify expirations, you can specify trading_class, strikes, and rights.
         - trading_class: List of trading classes to filter by.
@@ -95,21 +101,18 @@ async def get_options_chain(
       - {"error": "..."} when an error occurs
 
   Example:
-    >>> get_options_chain(
-      underlying_symbol="CCJ",
-      underlying_sec_type="STK",
-      underlying_con_id=1447060,
-      exchange="SMART",
-      filters='{
-        "trading_class": ["CCJ"],
-        "expirations": ["20270206"],
-        "rights": ["C"],
-        "strikes": [120],
-      }',
-    )
-    {"options_chain": [
-      {"con_id":123456789,"symbol":"CCJ","sec_type":"OPT","last_trade_date_or_contract_month":"20270206","strike":120.0,"right":"C"}
-    ]}
+    {
+      "options_chain": [
+        {
+          "con_id": 123456789,
+          "symbol": "CCJ",
+          "sec_type": "OPT",
+          "last_trade_date_or_contract_month": "20270206",
+          "strike": 120.0,
+          "right": "C"
+        }
+      ]
+    }
 
   """
   try:

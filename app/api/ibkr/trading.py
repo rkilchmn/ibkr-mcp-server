@@ -26,31 +26,19 @@ async def place_order(
     Order response with order ID, status, and execution details
     
   Example:
-    >>> await place_order({
-    ...   "contract": {
-    ...     "symbol": "AAPL",
-    ...     "sec_type": "STK",
-    ...     "exchange": "SMART",
-    ...     "currency": "USD"
-    ...   },
-    ...   "order": {
-    ...     "action": "BUY",
-    ...     "total_quantity": 100,
-    ...     "order_type": "LMT",
-    ...     "lmt_price": 150.00,
-    ...     "time_in_force": "DAY"
-    ...   }
-    ... })
     {
-      "order_id": 1,
-      "status": "Submitted",
-      "symbol": "AAPL",
-      "action": "BUY",
-      "quantity": 100.0,
-      "filled": 0.0,
-      "remaining": 100.0,
-      "avg_fill_price": null
+      "contract": {
+        "con_id": 12345678
+      },
+      "order": {
+        "action": "BUY",
+        "total_quantity": 100,
+        "order_type": "LMT",
+        "lmt_price": 150.00,
+        "time_in_force": "DAY"
+      }
     }
+
   """
   try:
     logger.debug(f"Placing order for {request.contract.symbol}")
