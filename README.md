@@ -336,7 +336,7 @@ Get detailed information about a contract.
   - `lastTradeDateOrContractMonth`: Expiry date for options - "YYYYMMDD"
   - `strike`: Strike price (for options)
   - `right`: Right for options - "C" or "P"
-  - `tradingClass`: Trading class (e.g., SPXW for weekly SPX options)
+  - `trading_class`: Trading class (e.g., SPXW for weekly SPX options)
 
 **Returns:**
 - `qualified_contract`: A single contract dict when a unique match is found

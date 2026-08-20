@@ -120,8 +120,8 @@ async def get_and_filter_options_chain(
     underlying_con_id: ConID of the underlying contract.
     filters: Filters as JSON string to apply to the options chain,
     you must specify at least one filter to reduce the number of options in the chain,
-    you must specify expirations, you can specify tradingClass, strikes, and rights.
-      - tradingClass: List of trading classes to filter by.
+      you must specify expirations, you can specify trading_class, strikes, and rights.
+        - trading_class: List of trading classes to filter by.
       - expirations: List of expirations to filter by.
       - strikes: List of strikes to filter by.
       - rights: List of rights to filter by.
@@ -138,7 +138,7 @@ async def get_and_filter_options_chain(
       underlying_sec_type="IND",
       underlying_con_id=416904,
       filters='{
-        "tradingClass": ["SPXW"],
+        "trading_class": ["SPXW"],
         "expirations": ["20250505"],
         "strikes": [5490],
         "rights": ["C", "P"],

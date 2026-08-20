@@ -49,7 +49,7 @@ app = FastAPI(
 app.include_router(gateway.router)
 app.include_router(ibkr_router)
 
-@app.get("/")
+@app.get("/", tags=["root"])
 def read_root() -> dict:
   """Return the root endpoint."""
   return {
@@ -59,5 +59,5 @@ def read_root() -> dict:
   }
 
 # MCP server, attached to the FastAPI app
-mcp = FastApiMCP(app, exclude_tags=["gateway"])
+mcp = FastApiMCP(app, exclude_tags=["root"])
 mcp.mount()

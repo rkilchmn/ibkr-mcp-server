@@ -35,42 +35,42 @@ async def get_scanner_workflow() -> dict:
   logger.debug("Returning scanner workflow")
   return {
     "workflow": [
-      {
-        "step": 1,
-        "action": "get_scanner_instrument_codes",
-        "description": "Get available instrument types (STK, FUT, OPT)",
-        "endpoint": "/scanner/instrument_codes",
-      },
-      {
-        "step": 2,
-        "action": "get_scanner_location_codes",
-        "description": "Get available location codes (STK.US, STK.EU, etc.)",
-        "endpoint": "/scanner/location_codes",
-      },
-      {
-        "step": 3,
-        "action": "get_scanner_scan_codes",
-        "description": "Get available scan codes for predefined scans",
-        "endpoint": "/scanner/scan_codes",
-      },
-      {
-        "step": 4,
-        "action": "get_scanner_filter_codes",
-        "description": "Get available filter parameters with examples",
-        "endpoint": "/scanner/filter_codes",
-      },
-      {
-        "step": 5,
-        "action": "get_scanner_results",
-        "description": "Execute scanner query with scan_code and empty filters",
-        "endpoint": "/scanner/results",
-      },
-      {
-        "step": 6,
-        "action": "get_scanner_results",
-        "description": "Fine-tune results by adding filters progressively",
-        "endpoint": "/scanner/results",
-      },
+        {
+          "step": 1,
+          "action": "get_scanner_instrument_codes",
+          "description": "Get available instrument types (STK, FUT, OPT)",
+          "endpoint": "/ibkr/scanner/instrument_codes",
+        },
+        {
+          "step": 2,
+          "action": "get_scanner_location_codes",
+          "description": "Get available location codes (STK.US, STK.EU, etc.)",
+          "endpoint": "/ibkr/scanner/location_codes",
+        },
+        {
+          "step": 3,
+          "action": "get_scanner_scan_codes",
+          "description": "Get available scan codes for predefined scans",
+          "endpoint": "/ibkr/scanner/scan_codes",
+        },
+        {
+          "step": 4,
+          "action": "get_scanner_filter_codes",
+          "description": "Get available filter parameters with examples",
+          "endpoint": "/ibkr/scanner/filter_codes",
+        },
+        {
+          "step": 5,
+          "action": "get_scanner_results",
+          "description": "Execute scanner query with scan_code and empty filters",
+          "endpoint": "/ibkr/scanner/results",
+        },
+        {
+          "step": 6,
+          "action": "get_scanner_results",
+          "description": "Fine-tune results by adding filters progressively",
+          "endpoint": "/ibkr/scanner/results",
+        },
     ],
     "tips": [
       "Always call the code endpoints first to get valid parameters",
