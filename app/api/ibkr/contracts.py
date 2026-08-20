@@ -26,10 +26,10 @@ async def get_contract_details(
     exchange (str): Exchange (CBOE, NYSE, ARCA, BATS, NASDAQ)
     primary_exchange (str | None): Primary exchange for the contract
     options (str | None): Optional parameters as JSON string including:
-      - lastTradeDateOrContractMonth: Expiry date for options - "YYYYMMDD"
+      - last_trade_date_or_contract_month: Expiry date for options - "YYYYMMDD"
       - strike: Strike price for options
       - right: Right for options - "C" or "P"
-      - tradingClass: for weekly options of SPX use SPXW
+      - trading_class: for weekly options of SPX use SPXW
 
   Returns:
     dict: A JSON response containing either:
@@ -82,8 +82,8 @@ async def get_options_chain(
       If not specified and multiple chains are available, returns candidate chains.
     filters (str | None): filters as JSON string to apply to the options chain,
       you must specify at least one filter to reduce the number of options in the chain,
-      you must specify expirations, you can specify tradingClass, strikes, and rights.
-      - tradingClass: List of trading classes to filter by.
+      you must specify expirations, you can specify trading_class, strikes, and rights.
+        - trading_class: List of trading classes to filter by.
       - expirations: List of expirations to filter by.
       - strikes: List of strikes to filter by.
       - rights: List of rights to filter by.
@@ -101,7 +101,7 @@ async def get_options_chain(
       underlying_con_id=1447060,
       exchange="SMART",
       filters='{
-        "tradingClass": ["CCJ"],
+        "trading_class": ["CCJ"],
         "expirations": ["20270206"],
         "rights": ["C"],
         "strikes": [120],

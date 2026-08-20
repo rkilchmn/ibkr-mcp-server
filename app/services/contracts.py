@@ -92,7 +92,7 @@ class ContractClient(IBClient):
         - strike: Strike price to get contract details for.
         - right: Right to get contract details for.
         - lastTradeDateOrContractMonth: Last trade date or contract month.
-        - tradingClass: Trading class to get contract details for.
+        - trading_class: Trading class to get contract details for.
 
     Returns:
         Dict of contract details if a single matching contract is found,
@@ -110,7 +110,12 @@ class ContractClient(IBClient):
         "comboLegs": [],
       }
       if options:
-        contract_params.update(options)
+        key_map = {
+          "last_trade_date_or_contract_month": "lastTradeDateOrContractMonth",
+          "trading_class": "tradingClass",
+        }
+        mapped_options = {key_map.get(k, k): v for k, v in options.items()}
+        contract_params.update(mapped_options)
 
       contract = Contract(
         conId=0,

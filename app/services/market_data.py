@@ -221,7 +221,8 @@ class MarketDataClient(IBClient):
       
       # Request streaming data for all qualified contracts
       # Generic ticks: 221=mark price, 165=52-week high/low, 106=opt implied vol, 104=hist vol, 100=opt volume, 101=opt open interest
-      generic_tick_list = "221,165,106,104,100,101"
+      # generic_tick_list = "221,165,106,104,100,101"
+      generic_tick_list = "221"
       tickers = [self.ib.reqMktData(contract, genericTickList=generic_tick_list) for contract in qualified_contracts]
 
       try:
@@ -342,8 +343,8 @@ class MarketDataClient(IBClient):
       underlying_con_id: ConID of the underlying contract.
       filters: Dictionary of filters to apply to the options chain,
       you must specify at least one filter to reduce the number of options in the chain,
-      you must specify expirations, you can specify tradingClass, strikes, and rights.
-        - tradingClass: List of trading classes to filter by.
+      you must specify expirations, you can specify trading_class, strikes, and rights.
+        - trading_class: List of trading classes to filter by.
         - expirations: List of expirations to filter by.
         - strikes: List of strikes to filter by.
         - rights: List of rights to filter by.
