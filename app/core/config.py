@@ -20,6 +20,7 @@ class Config(BaseSettings):
   ib_gateway_port: int = 8888
   ib_command_server_port: int = 7462
   ib_gateway_tradingmode: str = "paper"
+  ib_gateway_readonly: bool = True
 
   # Timeout configuration (in seconds)
   ib_connection_timeout: int = 20
@@ -47,6 +48,7 @@ class ConfigManager:
     log_level: str = "INFO",
     mode: str = "PROD",
     ib_gateway_tradingmode: str = "paper",
+    ib_gateway_readonly: bool = True,
   ) -> Config:
     """Initialize the global config with CLI parameters.
     
@@ -66,6 +68,7 @@ class ConfigManager:
     config_kwargs["log_level"] = log_level
     config_kwargs["mode"] = mode
     config_kwargs["ib_gateway_tradingmode"] = ib_gateway_tradingmode
+    config_kwargs["ib_gateway_readonly"] = ib_gateway_readonly
     cls._instance = Config(**config_kwargs)
     return cls._instance
 
@@ -81,6 +84,7 @@ def init_config(
   log_level: str = "INFO",
   mode: str = "PROD",
   ib_gateway_tradingmode: str = "paper",
+  ib_gateway_readonly: bool = True,
 ) -> Config:
   """Initialize the global config with CLI parameters.
   
@@ -99,4 +103,5 @@ def init_config(
     log_level=log_level,
     mode=mode,
     ib_gateway_tradingmode=ib_gateway_tradingmode,
+    ib_gateway_readonly=ib_gateway_readonly,
   )

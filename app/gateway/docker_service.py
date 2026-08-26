@@ -28,7 +28,7 @@ docker_config = {
     "TWOFA_TIMEOUT_ACTION": "restart",
     "GATEWAY_OR_TWS": "gateway",
     "IBC_TradingMode": config.ib_gateway_tradingmode,
-    "IBC_ReadOnlyApi": "no",
+    "IBC_ReadOnlyApi": "yes" if config.ib_gateway_readonly else "no",
     "IBC_ReloginAfterSecondFactorAuthenticationTimeout": "yes",
     "IBC_AutoRestartTime": "08:35 AM",
     "IBC_CommandServerPort": config.ib_command_server_port,
