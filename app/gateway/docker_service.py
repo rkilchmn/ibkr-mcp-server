@@ -18,9 +18,9 @@ IBC_COMMAND_SERVER_PORT = 7462
 docker_config = {
   "image": "ghcr.io/extrange/ibkr:stable",
   "ports": {
-    VNC_PORT: VNC_PORT,
-    API_PORT: API_PORT,
-    IBC_COMMAND_SERVER_PORT: IBC_COMMAND_SERVER_PORT,
+    f"{VNC_PORT}/tcp": [{"HostIp": "127.0.0.1", "HostPort": str(VNC_PORT)}],
+    f"{API_PORT}/tcp": [{"HostIp": "127.0.0.1", "HostPort": str(API_PORT)}],
+    f"{IBC_COMMAND_SERVER_PORT}/tcp": [{"HostIp": "127.0.0.1", "HostPort": str(IBC_COMMAND_SERVER_PORT)}],
   },
   "environment": {
     "USERNAME": config.ib_gateway_username,
