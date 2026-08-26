@@ -38,6 +38,12 @@ def parse_args() -> argparse.Namespace:
     default="paper",
     help="IBKR Gateway trading mode - 'paper' or 'live' (default: paper)",
   )
+  parser.add_argument(
+    "--ib-gateway-readonly",
+    type=lambda x: x.lower() == "true",
+    default=True,
+    help="IBKR Gateway read-only mode - 'true' or 'false' (default: true)",
+  )
   return parser.parse_args()
 
 def load_environment():
@@ -68,6 +74,7 @@ def main() -> None:
     log_level=args.log_level,
     mode=args.mode,
     ib_gateway_tradingmode=args.ib_gateway_tradingmode,
+    ib_gateway_readonly=args.ib_gateway_readonly,
   )
 
   from app.main import app # noqa: PLC0415
