@@ -101,3 +101,15 @@ for tool in mcp.tools:
                 "description": "Criteria as a dict (e.g., {'min_delta': -0.06, 'max_delta': -0.04})",
                 "title": "criteria",
             }
+    if tool.name == "get_market_data":
+        props = tool.inputSchema.get("properties", {})
+        if "contract_ids" in props:
+            props["contract_ids"] = {
+                "anyOf": [
+                    {"type": "array", "items": {"type": "integer"}},
+                    {"type": "integer"},
+                    {"type": "null"},
+                ],
+                "description": "One or more contract IDs. Pass a single int or a list of ints.",
+                "title": "contract_ids",
+            }
