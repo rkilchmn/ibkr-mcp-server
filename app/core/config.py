@@ -21,6 +21,7 @@ class Config(BaseSettings):
   ib_command_server_port: int = 7462
   ib_gateway_tradingmode: str = "paper"
   ib_gateway_readonly: bool = True
+  mcp_transport: str = "streamable-http"
 
   # Timeout configuration (in seconds)
   ib_connection_timeout: int = 20
@@ -49,6 +50,7 @@ class ConfigManager:
     mode: str = "PROD",
     ib_gateway_tradingmode: str = "paper",
     ib_gateway_readonly: bool = True,
+    mcp_transport: str = "streamable-http",
   ) -> Config:
     """Initialize the global config with CLI parameters.
     
@@ -59,6 +61,8 @@ class ConfigManager:
         log_level: Logging level
         mode: Application mode (PROD/DEV)
         ib_gateway_tradingmode: Trading mode (paper/live)
+        ib_gateway_readonly: IBKR Gateway read-only mode
+        mcp_transport: MCP transport type (streamable-http or sse)
     """
     config_kwargs = {}
 
@@ -69,6 +73,7 @@ class ConfigManager:
     config_kwargs["mode"] = mode
     config_kwargs["ib_gateway_tradingmode"] = ib_gateway_tradingmode
     config_kwargs["ib_gateway_readonly"] = ib_gateway_readonly
+    config_kwargs["mcp_transport"] = mcp_transport
     cls._instance = Config(**config_kwargs)
     return cls._instance
 
@@ -85,6 +90,7 @@ def init_config(
   mode: str = "PROD",
   ib_gateway_tradingmode: str = "paper",
   ib_gateway_readonly: bool = True,
+  mcp_transport: str = "streamable-http",
 ) -> Config:
   """Initialize the global config with CLI parameters.
   
@@ -95,6 +101,8 @@ def init_config(
       log_level: Logging level
       mode: Application mode (PROD/DEV)
       ib_gateway_tradingmode: Trading mode (paper/live)
+      ib_gateway_readonly: IBKR Gateway read-only mode
+      mcp_transport: MCP transport type (streamable-http or sse)
   """
   return ConfigManager.init_config(
     ib_gateway_username=ib_gateway_username,
@@ -104,4 +112,5 @@ def init_config(
     mode=mode,
     ib_gateway_tradingmode=ib_gateway_tradingmode,
     ib_gateway_readonly=ib_gateway_readonly,
+    mcp_transport=mcp_transport,
   )

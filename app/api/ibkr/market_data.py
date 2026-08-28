@@ -1,4 +1,5 @@
 """Contract and options-related tools."""
+import ast
 import json
 from fastapi import Query
 from fastapi.responses import JSONResponse
@@ -149,8 +150,20 @@ async def get_and_filter_options_chain(
       """,
     )
     # Parse JSON strings to dictionaries
-    filters_dict = json.loads(filters) if filters else None
-    criteria_dict = json.loads(criteria) if criteria else None
+    if filters:
+      try:
+        filters_dict = json.loads(filters)
+      except json.JSONDecodeError:
+        filters_dict = ast.literal_eval(filters)
+    else:
+      filters_dict = None
+    if criteria:
+      try:
+        criteria_dict = json.loads(criteria)
+      except json.JSONDecodeError:
+        criteria_dict = ast.literal_eval(criteria)
+    else:
+      criteria_dict = None
 
     filtered_options = await ib_interface.get_and_filter_options(
       underlying_symbol,
