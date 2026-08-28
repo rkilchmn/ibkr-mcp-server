@@ -266,16 +266,19 @@ class ContractClient(IBClient):
           ]
 
           try:
-            contracts = await asyncio.wait_for(
-                self.ib.qualifyContractsAsync(*contracts, returnAll=True),
+            batch_size = 10
+            qualified = []
+            for i in range(0, len(contracts), batch_size):
+              batch = contracts[i:i + batch_size]
+              batch_result = await asyncio.wait_for(
+                self.ib.qualifyContractsAsync(*batch, returnAll=True),
                 timeout=self.config.ib_request_timeout,
               )
-            if len(contracts) == 0:
+              if batch_result:
+                qualified.extend([c for c in batch_result if c is not None])
+            if len(qualified) == 0:
               raise Exception("No contracts found for the given filters.")
-            contracts = [c for c in contracts if c is not None]
-            if len(contracts) == 0:
-              raise Exception("No contracts found for the given filters.")
-            contracts_df = convert_df_columns_to_snake_case(util.df(contracts))
+            contracts_df = convert_df_columns_to_snake_case(util.df(qualified))
             
             # Check if contracts_df is None (util.df can return None for certain inputs)
             if contracts_df is None:
