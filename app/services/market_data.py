@@ -206,10 +206,16 @@ class MarketDataClient(IBClient):
       else:
         contracts = [Contract(conId=contract_id) for contract_id in contract_ids]
         
-      qualified_contracts = await asyncio.wait_for(
-        self.ib.qualifyContractsAsync(*contracts),
+      qualified_contracts = []
+      batch_size = 10
+      for i in range(0, len(contracts), batch_size):
+        batch = contracts[i:i + batch_size]
+        batch_result = await asyncio.wait_for(
+          self.ib.qualifyContractsAsync(*batch),
           timeout=self.config.ib_request_timeout,
         )
+        if batch_result:
+          qualified_contracts.extend([c for c in batch_result if c is not None])
       
       if qualified_contracts is None or len( qualified_contracts) == 0:
         raise Exception( "No qualified contracts found")
