@@ -30,6 +30,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         f"IBKR Gateway readonly={cfg.ib_gateway_readonly} "
         f"(change with --ib-gateway-readonly=false)"
       )
+      logger.info(
+        f"MCP transport={cfg.mcp_transport} "
+        f"(change with --mcp-transport=sse)"
+      )
+      if cfg.mcp_transport == "streamable-http":
+        mcp.mount_http()
+      else:
+        mcp.mount_sse()
     else:
       logger.error("Failed to start IBKR Gateway.")
   except Exception:
@@ -93,5 +101,3 @@ for tool in mcp.tools:
                 "description": "Criteria as a dict (e.g., {'min_delta': -0.06, 'max_delta': -0.04})",
                 "title": "criteria",
             }
-
-mcp.mount()

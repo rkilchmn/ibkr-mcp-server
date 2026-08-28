@@ -14,7 +14,8 @@
             "justMyCode": false,
             "args": [
                 "--ib-gateway-tradingmode=paper",
-                "--ib-gateway-readonly=false"
+                "--ib-gateway-readonly=false",
+                "--port=8002"
             ], 
         }
     ]

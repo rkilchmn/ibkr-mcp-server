@@ -1,5 +1,6 @@
 """Contract and options-related tools."""
 
+import ast
 import json
 from fastapi import Query
 from loguru import logger
@@ -8,6 +9,16 @@ from app.api.ibkr import ibkr_router, ib_interface
 # Module-level query parameter definitions
 OPTIONS_QUERY = Query(default=None, description="Optional parameters as JSON string")
 FILTERS_QUERY = Query(default=None, description="Filters as JSON string")
+
+
+def _parse_json_or_python_dict(value: str | None) -> dict:
+  """Parse a string that may be JSON or a Python dict literal."""
+  if not value:
+    return {}
+  try:
+    return json.loads(value)
+  except json.JSONDecodeError:
+    return ast.literal_eval(value)
 
 @ibkr_router.get("/contract_details", operation_id="get_contract_details")
 async def get_contract_details(
@@ -50,7 +61,7 @@ async def get_contract_details(
   """
   try:
     logger.debug("Getting contract details for symbol: {symbol}", symbol=symbol)
-    options_dict = json.loads(options) if options else {}
+    options_dict = _parse_json_or_python_dict(options)
     result = await ib_interface.get_contract_details(
       symbol=symbol,
       sec_type=sec_type,
@@ -117,7 +128,7 @@ async def get_options_chain(
   """
   try:
     logger.debug("Getting options chain for symbol: {symbol}", symbol=underlying_symbol)
-    filters_dict = json.loads(filters) if filters else {}
+    filters_dict = _parse_json_or_python_dict(filters)
     result = await ib_interface.get_options_chain(
       underlying_symbol=underlying_symbol,
       underlying_sec_type=underlying_sec_type,

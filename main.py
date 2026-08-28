@@ -44,6 +44,13 @@ def parse_args() -> argparse.Namespace:
     default=True,
     help="IBKR Gateway read-only mode - 'true' or 'false' (default: true)",
   )
+  parser.add_argument(
+    "--mcp-transport",
+    type=str,
+    choices=["streamable-http", "sse"],
+    default="streamable-http",
+    help="MCP transport type - 'streamable-http' or 'sse' (default: streamable-http)",
+  )
   return parser.parse_args()
 
 def load_environment():
@@ -75,6 +82,7 @@ def main() -> None:
     mode=args.mode,
     ib_gateway_tradingmode=args.ib_gateway_tradingmode,
     ib_gateway_readonly=args.ib_gateway_readonly,
+    mcp_transport=args.mcp_transport,
   )
 
   from app.main import app # noqa: PLC0415

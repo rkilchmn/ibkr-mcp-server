@@ -6,9 +6,9 @@
       "command": ["uv", "run", "--directory", "C:\\Users\\I047787\\Documents\\project\\tradingview-mcp", "tradingview-mcp"],
       "enabled": true
     },
-    "ibkr": {
+    "ibkr-mcp-server": {
       "type": "remote",
-      "url": "http://127.0.0.1:8000/mcp",
+      "url": "http://127.0.0.1:8002/mcp",
       "enabled": true
     }
   }

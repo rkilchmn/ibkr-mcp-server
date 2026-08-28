@@ -931,6 +931,10 @@ Full API documentation is available at: http://localhost:8000/docs
 
 MCP server is available at: http://localhost:8000/mcp
 
+## TODO / Future Work
+
+- Have a look at this to: https://github.com/jgalea/ibkr-mcp
+
 ## License
 
 MIT License
