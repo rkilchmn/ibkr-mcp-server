@@ -2,9 +2,20 @@
 import asyncio
 import datetime as dt
 from ib_async import IB
+from ib_async.wrapper import Wrapper
 
 from app.core.config import get_config
 from app.core.setup_logging import logger
+
+if not hasattr(Wrapper, '_original_contract_details'):
+  Wrapper._original_contract_details = Wrapper.contractDetails
+
+  def _patched_contract_details(self, reqId: int, contractDetails):
+    if reqId not in self._results:
+      self._results[reqId] = []
+    self._results[reqId].append(contractDetails)
+
+  Wrapper.contractDetails = _patched_contract_details
 
 class IBClient:
   """Base IB client connection handling. No public methods."""
