@@ -232,6 +232,7 @@ class MarketDataClient(IBClient):
       generic_tick_list = "221,165,106,104,100,101"
       tickers = [self.ib.reqMktData(contract, genericTickList=generic_tick_list) for contract in qualified_contracts]
 
+      result = []
       try:
           # Wait until all tickers have data and have stabilized (no changes for 2 cycles)
           timeout = self.config.ib_request_timeout
@@ -529,42 +530,32 @@ class MarketDataClient(IBClient):
       
       logger.debug(f"Qualifying contract: {ib_contract}")
       
-      # Qualify contract
-      try:
-        qualified_contracts = await asyncio.wait_for(
-          self.ib.qualifyContractsAsync(ib_contract),
-          timeout=self.config.ib_request_timeout,
-        )
-        if not qualified_contracts or not qualified_contracts[0]:
-          if contract_id:
-            raise ValueError(f"No contract found for contract_id {contract_id}")
-          else:
-            raise ValueError(f"No contract found for {symbol} (type: {sec_type}, exchange: {exchange}, currency: {currency})")
-        
-        ib_contract = qualified_contracts[0]
-        logger.debug(f"Qualified contract: {ib_contract}")
-        
-        # Get timezone and liquid hours for the contract
-        contract_timezone = None
-        liquid_hours = None
-        if end_date:
-          try:
-            contract_details = await self.ib.reqContractDetailsAsync(ib_contract)
-            if contract_details and contract_details[0]:
-              contract_timezone = contract_details[0].timeZoneId
-              liquid_hours = contract_details[0].liquidHours
-              logger.debug(f"Contract timezone: {contract_timezone}, liquidHours: {liquid_hours}")
-          except Exception as tz_error:
-            logger.warning(f"Could not get contract timezone: {tz_error}")
-        
-      except Exception as qual_error:
-        if contract_id:
-          error_msg = f"Failed to qualify contract with ID {contract_id}: {str(qual_error)}"
-        else:
-          error_msg = f"Failed to qualify contract {symbol} (type: {sec_type}, exchange: {exchange}): {str(qual_error)}"
-        logger.error(error_msg)
-        raise ValueError(error_msg) from qual_error
+      qualified_contracts = await asyncio.wait_for(
+        self.ib.qualifyContractsAsync(ib_contract),
+        timeout=self.config.ib_request_timeout,
+      )
       
+      if qualified_contracts is None or not qualified_contracts or not qualified_contracts[0]:
+        if contract_id:
+          raise ValueError(f"No contract found for contract_id {contract_id}")
+        else:
+          raise ValueError(f"No contract found for {symbol} (type: {sec_type}, exchange: {exchange}, currency: {currency})")
+      
+      ib_contract = qualified_contracts[0]
+      logger.debug(f"Qualified contract: {ib_contract}")
+      
+      # Get timezone and liquid hours for the contract
+      contract_timezone = None
+      liquid_hours = None
+      if end_date:
+        try:
+          contract_details = await self.ib.reqContractDetailsAsync(ib_contract)
+          if contract_details and contract_details[0]:
+            contract_timezone = contract_details[0].timeZoneId
+            liquid_hours = contract_details[0].liquidHours
+            logger.debug(f"Contract timezone: {contract_timezone}, liquidHours: {liquid_hours}")
+        except Exception as tz_error:
+          logger.warning(f"Could not get contract timezone: {tz_error}")
       try:
         # Request historical data
         logger.debug(f"Requesting historical data for {ib_contract.symbol} ({ib_contract.secType})...")
@@ -628,11 +619,11 @@ class MarketDataClient(IBClient):
         ]
         
       except Exception as hist_error:
-        error_msg = f"Failed to get historical data for {ib_contract.symbol} (type: {ib_contract.secType}): {str(hist_error)}"
+        error_msg = f"Failed to get historical data for {ib_contract.symbol} (type: {ib_contract.secType}): {type(hist_error).__name__}: {hist_error}"
         logger.error(error_msg)
         raise Exception(error_msg) from hist_error
       
     except Exception as e:
-      logger.error(f"Historical data error for symbol={symbol}, contract_id={contract_id}: {str(e)}", exc_info=True)
-      raise Exception(f"Historical data error: {str(e)}")
+      logger.error(f"Historical data error for symbol={symbol}, contract_id={contract_id}: {type(e).__name__}: {e}", exc_info=True)
+      raise Exception(f"Historical data error: {type(e).__name__}: {e}")
 
