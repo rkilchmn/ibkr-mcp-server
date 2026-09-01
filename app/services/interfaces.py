@@ -6,6 +6,7 @@ from .positions import PositionClient
 from .account import AccountClient
 from .trading import TradingClient
 from .connection import ConnectionClient
+from .fundamental import FundamentalClient
 
 class IBInterface(
   MarketDataClient,
@@ -15,5 +16,6 @@ class IBInterface(
   AccountClient,
   TradingClient,
   ConnectionClient,
+  FundamentalClient,
 ):
   """Main IB interface combining all functionality."""

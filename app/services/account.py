@@ -26,6 +26,7 @@ class AccountClient(IBClient):
         self.ib.reqAccountUpdates(True)
         await asyncio.sleep(2)
         summary_items = self.ib.accountSummary()
+        self.ib.reqAccountUpdates(False)
       
       return [
         AccountSummary(

@@ -114,14 +114,14 @@ class MarketDataClient(IBClient):
     result["symbol"] = result["contract"].apply(lambda x: x.localSymbol)
     result["sec_type"] = result["contract"].apply(lambda x: x.secType)
     result["greeks"] = result.apply(self._greek_extraction, axis=1)
-    result["timestamp"] = result["time"].apply(lambda x: x.isoformat() if x else None)
+    result["timestamp"] = result["time"].apply(lambda x: x.isoformat() if pd.notna(x) else None)
     result["last_trade_time"] = result.apply(
       lambda row: (
         row["lastTimestamp"].isoformat()
-        if row.get("lastTimestamp")
+        if pd.notna(row.get("lastTimestamp"))
         else (
           row["delayedLastTimestamp"].isoformat()
-          if row.get("delayedLastTimestamp")
+          if pd.notna(row.get("delayedLastTimestamp"))
           else None
         )
       ),
