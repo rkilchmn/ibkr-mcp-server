@@ -148,7 +148,11 @@ class MarketDataClient(IBClient):
         mark=self._valid_value(row.get("mark"), float),
         high_52_week=self._valid_value(row.get("high52"), float),
         low_52_week=self._valid_value(row.get("low52"), float),
-        open_interest=self._valid_value(row.get("openInterest"), int),
+        open_interest=(
+          self._valid_value(row.get("openInterest"), int)
+          or self._valid_value(row.get("callOpenInterest"), int)
+          or self._valid_value(row.get("putOpenInterest"), int)
+        ),
         greeks=row["greeks"],
         timestamp=row["timestamp"] or "",
         last_trade_time=row.get("last_trade_time"),
