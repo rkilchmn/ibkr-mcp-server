@@ -115,6 +115,18 @@ class MarketDataClient(IBClient):
     result["sec_type"] = result["contract"].apply(lambda x: x.secType)
     result["greeks"] = result.apply(self._greek_extraction, axis=1)
     result["timestamp"] = result["time"].apply(lambda x: x.isoformat() if x else None)
+    result["last_trade_time"] = result.apply(
+      lambda row: (
+        row["lastTimestamp"].isoformat()
+        if row.get("lastTimestamp")
+        else (
+          row["delayedLastTimestamp"].isoformat()
+          if row.get("delayedLastTimestamp")
+          else None
+        )
+      ),
+      axis=1,
+    )
     result["market_data_type"] = result["marketDataType"]
 
     # Convert DataFrame to list of Pydantic models
@@ -136,10 +148,10 @@ class MarketDataClient(IBClient):
         mark=self._valid_value(row.get("mark"), float),
         high_52_week=self._valid_value(row.get("high52"), float),
         low_52_week=self._valid_value(row.get("low52"), float),
-        option_volume=self._valid_value(row.get("volume"), int),  # Generic tick 100
-        option_open_interest=self._valid_value(row.get("openInterest"), int),  # Generic tick 101
+        open_interest=self._valid_value(row.get("openInterest"), int),
         greeks=row["greeks"],
         timestamp=row["timestamp"] or "",
+        last_trade_time=row.get("last_trade_time"),
         market_data_type=row["market_data_type"],
       )
       ticker_list.append(ticker_data)
@@ -229,6 +241,8 @@ class MarketDataClient(IBClient):
       
       # Request streaming data for all qualified contracts
       # Generic ticks: 221=mark price, 165=52-week high/low, 106=opt implied vol, 104=hist vol, 100=opt volume, 101=opt open interest
+      # Note: ticks 100/101 not in ib_async GENERIC_TICK_MAP; volume/openInterest come from tick types 8/22
+      # lastTimestamp (last trade time) comes from tick type 45, no generic tick needed
       generic_tick_list = "221,165,106,104,100,101"
       tickers = [self.ib.reqMktData(contract, genericTickList=generic_tick_list) for contract in qualified_contracts]
 
@@ -445,8 +459,7 @@ class MarketDataClient(IBClient):
           "mark": row["mark"] if pd.notna(row.get("mark")) else None,
           "high_52_week": row["high_52_week"] if pd.notna(row.get("high_52_week")) else None,
           "low_52_week": row["low_52_week"] if pd.notna(row.get("low_52_week")) else None,
-          "option_volume": row["option_volume"] if pd.notna(row.get("option_volume")) else None,
-          "option_open_interest": row["option_open_interest"] if pd.notna(row.get("option_open_interest")) else None,
+          "open_interest": row["open_interest"] if pd.notna(row.get("open_interest")) else None,
           "greeks": row["greeks"],
         }
         # Only add timestamp if it exists and is not None
@@ -455,6 +468,8 @@ class MarketDataClient(IBClient):
         # Only add market_data_type if it exists and is not None
         if pd.notna(row.get("market_data_type")):
           ticker_kwargs["market_data_type"] = row["market_data_type"]
+        if pd.notna(row.get("last_trade_time")):
+          ticker_kwargs["last_trade_time"] = row["last_trade_time"]
         ticker_data = MarketData(**ticker_kwargs)
         filtered_tickers.append(ticker_data)
 

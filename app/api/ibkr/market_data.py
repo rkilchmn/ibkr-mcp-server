@@ -64,11 +64,12 @@ async def get_market_data(
         "mark": null,
         "high_52_week": null,
         "low_52_week": null,
-        "option_volume": 724566,
-        "option_open_interest": null,
-        "greeks": null,
-        "timestamp": "2026-02-28T12:08:47.821499+00:00",
-        "market_data_type": 3
+         "volume": 724566,
+         "open_interest": null,
+         "greeks": null,
+         "timestamp": "2026-02-28T12:08:47.821499+00:00",
+         "last_trade_time": "2026-02-28T12:07:55+00:00",
+         "market_data_type": 3
       }
     ]
 

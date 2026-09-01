@@ -370,15 +370,15 @@ curl -X GET "http://localhost:8000/ibkr/market_data?contract_ids=265598&contract
     "ask_size": null,
     "high": 272.81,
     "low": 262.89,
-    "volume": 724566,
-    "mark": null,
-    "high_52_week": null,
-    "low_52_week": null,
-    "option_volume": 724566,
-    "option_open_interest": null,
-    "greeks": null,
-    "timestamp": "2026-02-28T12:08:47.821499+00:00",
-    "market_data_type": 3
+     "volume": 724566,
+     "mark": null,
+     "high_52_week": null,
+     "low_52_week": null,
+     "open_interest": null,
+     "greeks": null,
+     "timestamp": "2026-02-28T12:08:47.821499+00:00",
+     "last_trade_time": "2026-02-28T12:07:55+00:00",
+     "market_data_type": 3
   }
 ]
 ```
@@ -938,3 +938,38 @@ MCP server is available at: http://localhost:8000/mcp
 ## License
 
 MIT License
+
+## Appendix 1: Generic Ticks Reference
+
+The server requests generic ticks alongside real-time market data to enrich the `MarketData` response. The following generic ticks are used (set in `app/services/market_data.py`):
+
+| Tick | Name | Description |
+|------|------|-------------|
+| 100 | Option Volume | Option volume (put/call) |
+| 101 | Option Open Interest | Option open interest (put/call) |
+| 104 | Historical Volatility | Historical volatility |
+| 106 | Implied Volatility | Option implied volatility |
+| 165 | 52-Week High/Low | 52-week high and low prices |
+| 221 | Mark Price | Generic mark price |
+
+These map to the `MarketData` response fields as follows:
+
+| Generic Tick | MarketData Field | ib_async Ticker Attribute |
+|--------------|------------------|--------------------------|
+| 100 | (requested, not mapped by ib_async) | — |
+| 101 | (requested, not mapped by ib_async) | — |
+| 104 | _valid_value(row["histVolatility"]) | `histVolatility` |
+| 106 | _valid_value(row["impliedVolatility"]) | `impliedVolatility` |
+| 165 | `high_52_week`, `low_52_week` | `high52`, `low52` |
+| 221 | `mark` | `mark` |
+
+**Additional fields not from generic ticks:**
+
+| MarketData Field | ib_async Ticker Attribute | Tick Type |
+|------------------|--------------------------|-----------|
+| `timestamp` | `time` | 2 (TIME) |
+| `last_trade_time` | `lastTimestamp` / `delayedLastTimestamp` | 45 / 88 |
+| `volume` | `volume` | 8 (VOLUME) |
+| `open_interest` | `openInterest` | 22 (OPEN_INTEREST) |
+
+**Note:** Generic ticks 100 and 101 are requested but not mapped in ib_async's `GENERIC_TICK_MAP`. The `volume` field uses `ticker.volume` (tick type 8) and `open_interest` uses `ticker.openInterest` (tick type 22). For options, these are the per-contract volume and open interest.
