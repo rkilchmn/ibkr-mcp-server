@@ -5,7 +5,8 @@ class Config(BaseSettings):
   """Global configuration for the application."""
 
   ib_gateway_username: str
-  ib_gateway_password: str
+  ib_gateway_password: str | None = None
+  ib_gateway_password_file: str | None = None
   application_port: int = 8000
   log_level: str = "INFO"
   mode: str = "PROD"
@@ -17,14 +18,17 @@ class Config(BaseSettings):
   # IBKR Gateway parameters
   ib_gateway_persist: bool = False
   ib_gateway_host: str = "localhost"
-  ib_gateway_port: int = 8888
+  ib_gateway_vnc_port: int = 5900
+  ib_gateway_port: int = 4002
   ib_command_server_port: int = 7462
   ib_gateway_tradingmode: str = "paper"
   ib_gateway_readonly: bool = True
+  ib_gateway_vnc_password: str | None = None
   mcp_transport: str = "streamable-http"
 
   # Timeout configuration (in seconds)
-  ib_connection_timeout: int = 20
+  ib_connection_timeout: int = 300
+  ib_gateway_timeout: int = 300
   ib_request_timeout: int = 10
 
 
@@ -44,35 +48,46 @@ class ConfigManager:
   def init_config(
     cls,
     ib_gateway_username: str,
-    ib_gateway_password: str,
     application_port: int,
+    ib_gateway_password: str | None = None,
+    ib_gateway_password_file: str | None = None,
     log_level: str = "INFO",
     mode: str = "PROD",
-    ib_gateway_tradingmode: str = "paper",
+ib_gateway_tradingmode: str = "paper",
     ib_gateway_readonly: bool = True,
+    ib_gateway_vnc_password: str | None = None,
     mcp_transport: str = "streamable-http",
   ) -> Config:
     """Initialize the global config with CLI parameters.
-    
-    Args:
+
+      Args:
         ib_gateway_username: IBKR Gateway username
         ib_gateway_password: IBKR Gateway password
+          (optional, for backward compatibility)
+        ib_gateway_password_file: Host path to the password file
+          (defaults to ~/.secrets/ibkr/<USERNAME>)
         application_port: Port to run the application on
         log_level: Logging level
         mode: Application mode (PROD/DEV)
         ib_gateway_tradingmode: Trading mode (paper/live)
         ib_gateway_readonly: IBKR Gateway read-only mode
+        ib_gateway_vnc_password: VNC password to enable x11vnc
         mcp_transport: MCP transport type (streamable-http or sse)
-    """
+      """
     config_kwargs = {}
 
     config_kwargs["ib_gateway_username"] = ib_gateway_username
-    config_kwargs["ib_gateway_password"] = ib_gateway_password
+    if ib_gateway_password:
+      config_kwargs["ib_gateway_password"] = ib_gateway_password
+    if ib_gateway_password_file:
+      config_kwargs["ib_gateway_password_file"] = ib_gateway_password_file
     config_kwargs["application_port"] = application_port
     config_kwargs["log_level"] = log_level
     config_kwargs["mode"] = mode
     config_kwargs["ib_gateway_tradingmode"] = ib_gateway_tradingmode
     config_kwargs["ib_gateway_readonly"] = ib_gateway_readonly
+    if ib_gateway_vnc_password:
+      config_kwargs["ib_gateway_vnc_password"] = ib_gateway_vnc_password
     config_kwargs["mcp_transport"] = mcp_transport
     cls._instance = Config(**config_kwargs)
     return cls._instance
@@ -84,33 +99,40 @@ def get_config() -> Config:
 
 def init_config(
   ib_gateway_username: str,
-  ib_gateway_password: str,
   application_port: int,
+  ib_gateway_password: str | None = None,
+  ib_gateway_password_file: str | None = None,
   log_level: str = "INFO",
   mode: str = "PROD",
-  ib_gateway_tradingmode: str = "paper",
-  ib_gateway_readonly: bool = True,
-  mcp_transport: str = "streamable-http",
-) -> Config:
+ib_gateway_tradingmode: str = "paper",
+    ib_gateway_readonly: bool = True,
+    ib_gateway_vnc_password: str | None = None,
+    mcp_transport: str = "streamable-http",
+  ) -> Config:
   """Initialize the global config with CLI parameters.
-  
+
   Args:
       ib_gateway_username: IBKR Gateway username
-      ib_gateway_password: IBKR Gateway password
+      ib_gateway_password: IBKR Gateway password (optional, for backward compatibility)
+      ib_gateway_password_file: Host path to the password file
+      (defaults to ~/.secrets/ibkr/<USERNAME>)
       application_port: Port to run the application on
       log_level: Logging level
       mode: Application mode (PROD/DEV)
       ib_gateway_tradingmode: Trading mode (paper/live)
       ib_gateway_readonly: IBKR Gateway read-only mode
+      ib_gateway_vnc_password: VNC password to enable x11vnc
       mcp_transport: MCP transport type (streamable-http or sse)
   """
   return ConfigManager.init_config(
     ib_gateway_username=ib_gateway_username,
     ib_gateway_password=ib_gateway_password,
+    ib_gateway_password_file=ib_gateway_password_file,
     application_port=application_port,
     log_level=log_level,
     mode=mode,
     ib_gateway_tradingmode=ib_gateway_tradingmode,
     ib_gateway_readonly=ib_gateway_readonly,
+    ib_gateway_vnc_password=ib_gateway_vnc_password,
     mcp_transport=mcp_transport,
   )

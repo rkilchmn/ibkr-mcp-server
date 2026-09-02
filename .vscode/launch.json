@@ -17,6 +17,10 @@
                 "--ib-gateway-readonly=false",
                 "--port=8002"
             ], 
+            "env": {
+                "IB_GATEWAY_VNC_PORT": "5901",
+                "VNC_SERVER_PASSWORD": "ibkr-gateway"
+            }
         }
     ]
 }

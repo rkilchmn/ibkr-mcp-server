@@ -39,7 +39,7 @@ class IBClient:
         port=port,
         clientId=dt.datetime.now(dt.UTC).strftime("%H%M%S"),
         timeout=self.config.ib_connection_timeout,
-        readonly=False,
+        readonly=self.config.ib_gateway_readonly,
       )
       self.ib.RequestTimeout = self.config.ib_request_timeout
     except Exception as e:

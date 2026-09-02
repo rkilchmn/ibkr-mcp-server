@@ -1,8 +1,10 @@
 """Docker service for the IBKR Gateway."""
 
+import os
 import time
 import asyncio
 import docker
+from pathlib import Path
 from datetime import datetime, UTC
 from ib_async import IB
 from typing import Any
@@ -11,33 +13,105 @@ from app.core.config import get_config
 
 config = get_config()
 
-VNC_PORT = 6080
-API_PORT = 8888
-IBC_COMMAND_SERVER_PORT = 7462
+VNC_PORT = 5900
+VNC_HOST_PORT = config.ib_gateway_vnc_port
+
+# Run container on the host network when NAT is broken on this host.
+# Default false: container uses the Docker bridge network.
+USE_HOST_NETWORK = os.getenv("IB_GATEWAY_USE_HOST_NETWORK", "false").lower() == "true"
+
+# API ports through socat (host port → mapped to container port)
+# gnzsnz/ib-gateway-docker exposes:
+#   4003 → container live API,  4001 → host
+#   4004 → container paper API, 4002 → host
+CONTAINER_LIVE_API_PORT = 4003
+HOST_LIVE_API_PORT = 4001
+CONTAINER_PAPER_API_PORT = 4004
+HOST_PAPER_API_PORT = 4002
+
+if config.ib_gateway_tradingmode == "live":
+  API_PORT = HOST_LIVE_API_PORT
+else:
+  API_PORT = HOST_PAPER_API_PORT
+
+CONTAINER_SECRETS_PATH = "/run/secrets"
+
+# Determine the password file host path
+password_file_host_path: str | None = None
+if config.ib_gateway_password_file:
+  password_file_host_path = str(Path(config.ib_gateway_password_file).expanduser())
+elif config.ib_gateway_password:
+  password_file_host_path = None
+else:
+  password_file_host_path = str(
+    Path(f"~/.secrets/ibkr/{config.ib_gateway_username}").expanduser(),
+  )
+
+if password_file_host_path:
+  path_obj = Path(password_file_host_path)
+  if not path_obj.exists():
+    logger.warning(
+      f"Password file {password_file_host_path} does not exist. "
+      f"The container may fail to start without credentials.",
+    )
 
 docker_config = {
-  "image": "ghcr.io/extrange/ibkr:stable",
-  "ports": {
-    f"{VNC_PORT}/tcp": [{"HostIp": "127.0.0.1", "HostPort": str(VNC_PORT)}],
-    f"{API_PORT}/tcp": [{"HostIp": "127.0.0.1", "HostPort": str(API_PORT)}],
-    f"{IBC_COMMAND_SERVER_PORT}/tcp": [{"HostIp": "127.0.0.1", "HostPort": str(IBC_COMMAND_SERVER_PORT)}],
+  "image": "ghcr.io/gnzsnz/ib-gateway:stable",
+  "ports": None if USE_HOST_NETWORK else {
+    f"{VNC_PORT}/tcp": [{"HostIp": "127.0.0.1", "HostPort": str(VNC_HOST_PORT)}],
+    f"{CONTAINER_LIVE_API_PORT}/tcp": [
+      {"HostIp": "127.0.0.1", "HostPort": str(HOST_LIVE_API_PORT)},
+    ],
+    f"{CONTAINER_PAPER_API_PORT}/tcp": [
+      {"HostIp": "127.0.0.1", "HostPort": str(HOST_PAPER_API_PORT)},
+    ],
   },
   "environment": {
-    "USERNAME": config.ib_gateway_username,
-    "PASSWORD": config.ib_gateway_password,
+    "TWS_USERID": config.ib_gateway_username,
     "TWOFA_TIMEOUT_ACTION": "restart",
-    "GATEWAY_OR_TWS": "gateway",
-    "IBC_TradingMode": config.ib_gateway_tradingmode,
-    "IBC_ReadOnlyApi": "yes" if config.ib_gateway_readonly else "no",
-    "IBC_ReloginAfterSecondFactorAuthenticationTimeout": "yes",
-    "IBC_AutoRestartTime": "08:35 AM",
-    "IBC_CommandServerPort": config.ib_command_server_port,
-    "IBC_ControlFrom": "127.0.0.1",
-    "IBC_BindAddress": "127.0.0.1",
-    "IBC_AcceptIncomingConnectionAction": "accept",
-    "IBC_AcceptNonBrokerageAccountWarning": "yes",
+    "TRADING_MODE": config.ib_gateway_tradingmode,
+    "READ_ONLY_API": "yes" if config.ib_gateway_readonly else "no",
+    "RELOGIN_AFTER_TWOFA_TIMEOUT": "yes",
+    "AUTO_RESTART_TIME": os.getenv("IB_GATEWAY_AUTO_RESTART_TIME", ""),
+    "TWS_ACCEPT_INCOMING": "accept",
+    "EXISTING_SESSION_DETECTED_ACTION": "primary",
   },
+  "volumes": {},
 }
+
+if config.ib_gateway_vnc_password:
+  docker_config["environment"]["VNC_SERVER_PASSWORD"] = (
+    config.ib_gateway_vnc_password
+  )
+
+# Configure credentials: pass the password file path through to Docker
+# via a read-only bind mount into /run/secrets/tws_password. The MCP
+# process does not need to read the file — only Docker and the
+# container's IBC do.
+if password_file_host_path:
+  docker_config["environment"]["TWS_PASSWORD_FILE"] = (
+    f"{CONTAINER_SECRETS_PATH}/tws_password"
+  )
+  _secret_src = Path(password_file_host_path)
+  if not _secret_src.exists():
+    logger.warning(
+      f"Password file {password_file_host_path} does not exist. "
+      "The container may fail to start without credentials.",
+    )
+  else:
+    # The MCP process doesn't need to read the file — only Docker does,
+    # for the bind mount. The container's IBC reads it at runtime.
+    docker_config["volumes"][str(_secret_src)] = {
+      "bind": f"{CONTAINER_SECRETS_PATH}/tws_password",
+      "mode": "ro",
+    }
+    logger.debug(
+      f"Bind-mounted {password_file_host_path} -> "
+      f"{CONTAINER_SECRETS_PATH}/tws_password",
+    )
+elif config.ib_gateway_password:
+  docker_config["environment"]["TWS_PASSWORD"] = config.ib_gateway_password
+
 
 class IBKRGatewayDockerService:
   """Service for managing IBKR Gateway Docker container."""
@@ -51,6 +125,7 @@ class IBKRGatewayDockerService:
     self._last_health_check = 0
     self._health_check_interval = 2
     self._connection_timeout = config.ib_connection_timeout
+    self._gateway_timeout = config.ib_gateway_timeout
 
   async def start_gateway(self) -> bool:
     """Start the IBKR Gateway container."""
@@ -66,18 +141,28 @@ class IBKRGatewayDockerService:
       except docker.errors.NotFound:
         pass
 
-      # Pull the IBKR Gateway image
-      self.client.images.pull(docker_config["image"])
+      # Check if the image exists locally, pull only if missing
+      try:
+        self.client.images.get(docker_config["image"])
+        logger.debug(f"Image {docker_config['image']} found locally")
+      except docker.errors.ImageNotFound:
+        logger.debug(f"Image {docker_config['image']} not found locally, pulling...")
+        self.client.images.pull(docker_config["image"])
+        logger.debug(f"Image {docker_config['image']} pulled successfully")
 
       # Container configuration
       container_config = {
         "image": docker_config["image"],
         "name": self.container_name,
-        "ports": docker_config["ports"],
         "environment": docker_config["environment"],
+        "volumes": docker_config["volumes"],
         "detach": True,
         "restart_policy": {"Name": "unless-stopped"},
       }
+      if USE_HOST_NETWORK:
+        container_config["network_mode"] = "host"
+      else:
+        container_config["ports"] = docker_config["ports"]
 
       # Start the container
       logger.debug("Starting IBKR Gateway container...")
@@ -125,8 +210,8 @@ class IBKRGatewayDockerService:
     """Wait for the IBKR Gateway container to be ready."""
     timer = 0
     while not await self.health_check():
-      if timer > self._connection_timeout:
-        logger.error(f"IBKR Gateway not ready after {self._connection_timeout} seconds")
+      if timer > self._gateway_timeout:
+        logger.error(f"IBKR Gateway not ready after {self._gateway_timeout} seconds")
         return False
       await asyncio.sleep(2)
       timer += 2

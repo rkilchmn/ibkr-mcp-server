@@ -45,6 +45,12 @@ def parse_args() -> argparse.Namespace:
     help="IBKR Gateway read-only mode - 'true' or 'false' (default: true)",
   )
   parser.add_argument(
+    "--ib-gateway-vnc-password",
+    type=str,
+    default=None,
+    help="VNC password to enable x11vnc inside the gateway container",
+  )
+  parser.add_argument(
     "--mcp-transport",
     type=str,
     choices=["streamable-http", "sse"],
@@ -59,7 +65,7 @@ def load_environment():
   load_dotenv(dotenv_path=env_path)
   
   # Required environment variables
-  required_vars = ['IB_GATEWAY_USERNAME', 'IB_GATEWAY_PASSWORD']
+  required_vars = ['IB_GATEWAY_USERNAME']
   missing_vars = [var for var in required_vars if not os.getenv(var)]
   
   if missing_vars:
@@ -73,15 +79,23 @@ def main() -> None:
   env = load_environment()
   args = parse_args()
 
+  username = env["IB_GATEWAY_USERNAME"]
+  # Derive password file path from username if not explicitly set
+  password_file = env.get("IB_GATEWAY_PASSWORD_FILE")
+  if not password_file:
+    password_file = f"~/.secrets/ibkr/{username}"
+
   # Initialize global config with environment variables and CLI parameters
   config = init_config(
     application_port=args.port,
-    ib_gateway_username=env['IB_GATEWAY_USERNAME'],
-    ib_gateway_password=env['IB_GATEWAY_PASSWORD'],
+    ib_gateway_username=username,
+    ib_gateway_password=env.get("IB_GATEWAY_PASSWORD"),
+    ib_gateway_password_file=password_file,
     log_level=args.log_level,
     mode=args.mode,
     ib_gateway_tradingmode=args.ib_gateway_tradingmode,
     ib_gateway_readonly=args.ib_gateway_readonly,
+    ib_gateway_vnc_password=args.ib_gateway_vnc_password or env.get("IB_GATEWAY_VNC_PASSWORD"),
     mcp_transport=args.mcp_transport,
   )
 

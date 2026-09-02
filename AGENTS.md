@@ -48,7 +48,8 @@ The project uses environment variables loaded from `.env` file.
 - `ENABLE_FILE_LOGGING=true` - Enable file logging (default: false)
 - `LOG_FILE_PATH=logs/app.log` - Log file location
 - `LOG_LEVEL=INFO` - Log level (DEBUG, INFO, WARNING, ERROR)
-- `IB_CONNECTION_TIMEOUT=20` - Connection timeout in seconds
+- `IB_CONNECTION_TIMEOUT=30` - IB API connection timeout in seconds
+- `IB_GATEWAY_TIMEOUT=300` - Gateway container startup timeout in seconds
 - `IB_REQUEST_TIMEOUT=30` - Request timeout in seconds
 
 ### How environment is loaded

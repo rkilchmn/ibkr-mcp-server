@@ -22,7 +22,7 @@ async def get_connection_status() -> ConnectionStatus:
     {
       "connected": true,
       "host": "localhost",
-      "port": 8888,
+        "port": 4002,
       "client_id": 0,
       "accounts": ["DU123456"]
     }
