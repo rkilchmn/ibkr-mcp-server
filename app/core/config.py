@@ -7,6 +7,7 @@ class Config(BaseSettings):
   ib_gateway_username: str
   ib_gateway_password: str | None = None
   ib_gateway_password_file: str | None = None
+  ib_gateway_password_path: str = "~/.secrets/ibkr-gateway"
   application_port: int = 8000
   log_level: str = "INFO"
   mode: str = "PROD"

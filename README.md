@@ -19,7 +19,43 @@ A FastAPI application that provides an MCP (Model Context Protocol) server for I
 
 - Python 3.13+
 - Docker installed and running
-- IBKR account credentials
+- IBKR account credentials (username + password)
+
+### Credentials Setup
+
+The MCP server reads the IBKR Gateway password from a **host file** that is bind-mounted into the Gateway container at `/run/secrets/tws_password`. The MCP process does **not** read this file — only Docker and the container do. The file must be readable by the container's runtime user (uid `1000` / group `1000` inside the `ghcr.io/gnzsnz/ib-gateway:stable` image).
+
+**Recommended setup (default):**
+
+```bash
+# Default path is ~/.secrets/ibkr-gateway/<IB_GATEWAY_USERNAME>
+sudo install -d -m 0700 -o root -g root ~/.secrets/ibkr-gateway
+sudo sh -c 'umask 0177; echo "YOUR_IBKR_PASSWORD" > ~/.secrets/ibkr-gateway/ebljlc158'
+sudo chown root:1000 ~/.secrets/ibkr-gateway/ebljlc158
+sudo chmod 0440 ~/.secrets/ibkr-gateway/ebljlc158
+```
+
+This creates a file owned by `root:1000` with mode `0440` — readable by the container's uid/gid (`ibgateway`), unreadable by other host users. The MCP server bind-mounts it directly into the container; no temporary copies are made.
+
+**Custom secrets directory:** set `IB_GATEWAY_PASSWORD_PATH` in `.env` to override the default `~/.secrets/ibkr-gateway/`. The MCP server constructs the secret file path as `<IB_GATEWAY_PASSWORD_PATH>/<IB_GATEWAY_USERNAME>`:
+
+```bash
+IB_GATEWAY_PASSWORD_PATH=/secure/secrets   # looks for /secure/secrets/ebljlc158
+```
+
+**Custom file path:** set `IB_GATEWAY_PASSWORD_FILE` to use an explicit full path (no username suffix). This takes precedence over `IB_GATEWAY_PASSWORD_PATH`:
+
+```bash
+IB_GATEWAY_PASSWORD_FILE=/secure/path/tws_password
+```
+
+The same permission requirements apply: the file must be readable by the container's uid/gid. Modes that work include `0440` (group-readable), `0604` (world-readable, no group/other write), or `0644`.
+
+**Security notes:**
+
+- The password file is the only secret the container needs. Never bake it into a Docker image or commit it to source control.
+- The container only sees the file at `/run/secrets/tws_password` (read-only bind mount). It cannot modify it.
+- If you previously used the `IB_GATEWAY_PASSWORD` env var directly, that still works but is less secure (visible in `docker inspect`).
 
 ### Installation
 
@@ -944,6 +980,8 @@ curl -X POST "http://localhost:8000/ibkr/connection/reconnect"
 - **Docker issues**: Ensure Docker daemon is running
 - **Port conflicts**: Check if port 8000 is available
 - **IBKR connection**: Verify credentials and TWS/Gateway setup
+- **Container fails to start / "Permission denied" on the password file**: the file at `IB_GATEWAY_PASSWORD_FILE` must be readable by uid `1000` (the container's `ibgateway` user). Use `sudo chown root:1000 <file> && sudo chmod 0440 <file>` (recommended) or `chmod 0604 <file>` for a less strict alternative. See the [Credentials Setup](#credentials-setup) section.
+- **API socket never opens (TWS logs show login complete but no `4002` listener)**: confirm with `docker exec ibkr-gateway cat /proc/net/tcp /proc/net/tcp6 | awk '/0A/ {print}'` — TWS often binds only to IPv6 (`[::]:4002`), which is fine because the MCP client connects via `127.0.0.1` and Linux dual-stack routing accepts it. If only an IPv4 listener is missing, the container's socat is unable to forward and `/ibkr/connection/status` will stay `false` until TWS opens the socket.
 
 ## Debugging
 

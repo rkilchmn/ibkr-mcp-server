@@ -44,7 +44,7 @@ elif config.ib_gateway_password:
   password_file_host_path = None
 else:
   password_file_host_path = str(
-    Path(f"~/.secrets/ibkr/{config.ib_gateway_username}").expanduser(),
+    Path(config.ib_gateway_password_path, config.ib_gateway_username).expanduser(),
   )
 
 if password_file_host_path:
