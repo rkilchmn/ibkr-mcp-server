@@ -93,7 +93,40 @@ docker_config = {
   "volumes": {},
 }
 
-if config.ib_gateway_vnc_password:
+if config.ib_gateway_vnc_password_file:
+  vnc_password_file_host_path = str(
+    Path(config.ib_gateway_vnc_password_file).expanduser(),
+  )
+elif config.ib_gateway_vnc_password:
+  vnc_password_file_host_path = None
+else:
+  vnc_password_file_host_path = str(
+    Path(config.ib_gateway_password_path, "vnc_password").expanduser(),
+  )
+
+# Configure VNC password: pass the file path through to Docker via a
+# read-only bind mount into /run/secrets/vnc_password and set
+# VNC_SERVER_PASSWORD_FILE so the container knows where to find it.
+if vnc_password_file_host_path:
+  docker_config["environment"]["VNC_SERVER_PASSWORD_FILE"] = (
+    f"{CONTAINER_SECRETS_PATH}/vnc_password"
+  )
+  _vnc_secret_src = Path(vnc_password_file_host_path)
+  if not _vnc_secret_src.exists():
+    logger.warning(
+      f"VNC password file {_vnc_secret_src} does not exist. "
+      "The container may fail to start without it.",
+    )
+  else:
+    docker_config["volumes"][str(_vnc_secret_src)] = {
+      "bind": f"{CONTAINER_SECRETS_PATH}/vnc_password",
+      "mode": "ro",
+    }
+    logger.debug(
+      f"Bind-mounted {vnc_password_file_host_path} -> "
+      f"{CONTAINER_SECRETS_PATH}/vnc_password",
+    )
+elif config.ib_gateway_vnc_password:
   docker_config["environment"]["VNC_SERVER_PASSWORD"] = config.ib_gateway_vnc_password
 
 # Configure credentials: pass the password file path through to Docker

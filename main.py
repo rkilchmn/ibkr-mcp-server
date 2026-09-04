@@ -71,6 +71,13 @@ def parse_args() -> argparse.Namespace:
     "(default: ~/.secrets/ibkr-gateway/abc_password)",
   )
   parser.add_argument(
+    "--vnc-password-file",
+    type=str,
+    default=None,
+    help="Host path to the VNC password file "
+    "(default: ~/.secrets/ibkr-gateway/vnc_password)",
+  )
+  parser.add_argument(
     "--mcp-transport",
     type=str,
     choices=["streamable-http", "sse"],
@@ -121,6 +128,7 @@ def main() -> None:
     ib_gateway_readonly=args.ib_gateway_readonly,
     ib_gateway_vnc_password=args.ib_gateway_vnc_password
     or env.get("IB_GATEWAY_VNC_PASSWORD"),
+    ib_gateway_vnc_password_file=args.vnc_password_file or env.get("VNC_PASSWORD_FILE"),
     ib_gateway_image=args.ib_gateway_image or env.get("IB_IMAGE_NAME"),
     password_file=args.password_file or env.get("PASSWORD_FILE"),
     tws_rdp_port=args.tws_rdp_port

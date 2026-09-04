@@ -27,6 +27,7 @@ class Config(BaseSettings):
   ib_gateway_tradingmode: str = "paper"
   ib_gateway_readonly: bool = True
   ib_gateway_vnc_password: str | None = None
+  ib_gateway_vnc_password_file: str | None = None
   ib_gateway_image: str = "ghcr.io/gnzsnz/ib-gateway:latest"
   password_file: str | None = None
   tws_rdp_port: int = 3389
@@ -62,6 +63,7 @@ class ConfigManager:
     ib_gateway_tradingmode: str = "paper",
     ib_gateway_readonly: bool = True,
     ib_gateway_vnc_password: str | None = None,
+    ib_gateway_vnc_password_file: str | None = None,
     ib_gateway_image: str = "ghcr.io/gnzsnz/ib-gateway:latest",
     password_file: str | None = None,
     tws_rdp_port: int = 3389,
@@ -81,10 +83,12 @@ class ConfigManager:
         ib_gateway_tradingmode: Trading mode (paper/live)
         ib_gateway_readonly: IBKR Gateway read-only mode
         ib_gateway_vnc_password: VNC password to enable x11vnc
+        ib_gateway_vnc_password_file: Host path to the VNC password file
+          (defaults to ~/.secrets/ibkr-gateway/vnc_password)
         ib_gateway_image: Docker image for IBKR Gateway
         password_file: Host path to the abc password file
           (defaults to ~/.secrets/ibkr-gateway/abc_password)
-        tws_rdp_port: Container-side VNC/RDP port (default: 5900)
+        tws_rdp_port: Host port for container-side RDP (default: 3389)
         mcp_transport: MCP transport type (streamable-http or sse)
 
     """
@@ -102,6 +106,8 @@ class ConfigManager:
     config_kwargs["ib_gateway_readonly"] = ib_gateway_readonly
     if ib_gateway_vnc_password:
       config_kwargs["ib_gateway_vnc_password"] = ib_gateway_vnc_password
+    if ib_gateway_vnc_password_file:
+      config_kwargs["ib_gateway_vnc_password_file"] = ib_gateway_vnc_password_file
     config_kwargs["ib_gateway_image"] = ib_gateway_image
     if password_file:
       config_kwargs["password_file"] = password_file
@@ -126,44 +132,49 @@ def init_config(
   mode: str = "PROD",
   ib_gateway_tradingmode: str = "paper",
   ib_gateway_readonly: bool = True,
-  ib_gateway_vnc_password: str | None = None,
-  ib_gateway_image: str = "ghcr.io/gnzsnz/ib-gateway:latest",
-  password_file: str | None = None,
-  tws_rdp_port: int = 3389,
-  mcp_transport: str = "streamable-http",
+    ib_gateway_vnc_password: str | None = None,
+    ib_gateway_vnc_password_file: str | None = None,
+    ib_gateway_image: str = "ghcr.io/gnzsnz/ib-gateway:latest",
+    password_file: str | None = None,
+    tws_rdp_port: int = 3389,
+    mcp_transport: str = "streamable-http",
 ) -> Config:
-  """Initialize the global config with CLI parameters.
+    """Initialize the global config with CLI parameters.
 
-  Args:
-      ib_gateway_username: IBKR Gateway username
-      ib_gateway_password: IBKR Gateway password (optional, for backward compatibility)
-      ib_gateway_password_file: Host path to the password file
-      (defaults to ~/.secrets/ibkr/<USERNAME>)
-      application_port: Port to run the application on
-      log_level: Logging level
-      mode: Application mode (PROD/DEV)
-      ib_gateway_tradingmode: Trading mode (paper/live)
-      ib_gateway_readonly: IBKR Gateway read-only mode
-      ib_gateway_vnc_password: VNC password to enable x11vnc
-      ib_gateway_image: Docker image for IBKR Gateway
-      password_file: Host path to the abc password file
-      (defaults to ~/.secrets/ibkr-gateway/abc_password)
-      tws_rdp_port: Container-side VNC/RDP port (default: 5900)
-      mcp_transport: MCP transport type (streamable-http or sse)
+    Args:
+        ib_gateway_username: IBKR Gateway username
+        ib_gateway_password: IBKR Gateway password
+        (optional, for backward compatibility)
+        ib_gateway_password_file: Host path to the password file
+        (defaults to ~/.secrets/ibkr/<USERNAME>)
+        application_port: Port to run the application on
+        log_level: Logging level
+        mode: Application mode (PROD/DEV)
+        ib_gateway_tradingmode: Trading mode (paper/live)
+        ib_gateway_readonly: IBKR Gateway read-only mode
+        ib_gateway_vnc_password: VNC password to enable x11vnc
+        ib_gateway_vnc_password_file: Host path to the VNC password file
+        (defaults to ~/.secrets/ibkr-gateway/vnc_password)
+        ib_gateway_image: Docker image for IBKR Gateway
+        password_file: Host path to the abc password file
+        (defaults to ~/.secrets/ibkr-gateway/abc_password)
+        tws_rdp_port: Host port for container-side RDP (default: 3389)
+        mcp_transport: MCP transport type (streamable-http or sse)
 
-  """
-  return ConfigManager.init_config(
-    ib_gateway_username=ib_gateway_username,
-    ib_gateway_password=ib_gateway_password,
-    ib_gateway_password_file=ib_gateway_password_file,
-    application_port=application_port,
-    log_level=log_level,
-    mode=mode,
-    ib_gateway_tradingmode=ib_gateway_tradingmode,
-    ib_gateway_readonly=ib_gateway_readonly,
-    ib_gateway_vnc_password=ib_gateway_vnc_password,
-    ib_gateway_image=ib_gateway_image,
-    password_file=password_file,
-    tws_rdp_port=tws_rdp_port,
-    mcp_transport=mcp_transport,
-  )
+    """
+    return ConfigManager.init_config(
+        ib_gateway_username=ib_gateway_username,
+        ib_gateway_password=ib_gateway_password,
+        ib_gateway_password_file=ib_gateway_password_file,
+        application_port=application_port,
+        log_level=log_level,
+        mode=mode,
+        ib_gateway_tradingmode=ib_gateway_tradingmode,
+        ib_gateway_readonly=ib_gateway_readonly,
+        ib_gateway_vnc_password=ib_gateway_vnc_password,
+        ib_gateway_vnc_password_file=ib_gateway_vnc_password_file,
+        ib_gateway_image=ib_gateway_image,
+        password_file=password_file,
+        tws_rdp_port=tws_rdp_port,
+        mcp_transport=mcp_transport,
+    )
