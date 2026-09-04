@@ -82,16 +82,60 @@ docker_config = {
   },
   "environment": {
     "TWS_USERID": config.ib_gateway_username,
-    "TWOFA_TIMEOUT_ACTION": "restart",
     "TRADING_MODE": config.ib_gateway_tradingmode,
     "READ_ONLY_API": "yes" if config.ib_gateway_readonly else "no",
-    "RELOGIN_AFTER_TWOFA_TIMEOUT": "yes",
     "AUTO_RESTART_TIME": os.getenv("IB_GATEWAY_AUTO_RESTART_TIME", ""),
-    "TWS_ACCEPT_INCOMING": "accept",
-    "EXISTING_SESSION_DETECTED_ACTION": "primary",
   },
   "volumes": {},
 }
+
+# Pass through image-defined env vars from the host environment only if
+# they are explicitly set. If not set, the container applies its own
+# defaults.
+_PASSTHROUGH_ENV_VARS = [
+  "TWS_ACCEPT_INCOMING",
+  "TWOFA_TIMEOUT_ACTION",
+  "TWOFA_DEVICE",
+  "TWOFA_EXIT_INTERVAL",
+  "RELOGIN_AFTER_TWOFA_TIMEOUT",
+  "EXISTING_SESSION_DETECTED_ACTION",
+  "BYPASS_WARNING",
+  "ALLOW_BLIND_TRADING",
+  "AUTO_LOGOFF_TIME",
+  "TWS_COLD_RESTART",
+  "SAVE_TWS_SETTINGS",
+  "TIME_ZONE",
+  "TWS_SETTINGS_PATH",
+  "TWS_MASTER_CLIENT_ID",
+  "JAVA_HEAP_SIZE",
+  "SSH_TUNNEL",
+  "SSH_OPTIONS",
+  "SSH_ALIVE_INTERVAL",
+  "SSH_ALIVE_COUNT",
+  "SSH_PASSPHRASE",
+  "SSH_PASSPHRASE_FILE",
+  "SSH_REMOTE_PORT",
+  "SSH_USER_TUNNEL",
+  "SSH_RESTART",
+  "SSH_VNC_PORT",
+  "SSH_RDP_PORT",
+  "PUID",
+  "PGID",
+  "PASSWD",
+  "PASSWD_FILE",
+  "START_SCRIPTS",
+  "X_SCRIPTS",
+  "IBC_SCRIPTS",
+  "CUSTOM_CONFIG",
+  "TWS_USERID_PAPER",
+  "TWS_PASSWORD_PAPER",
+  "TWS_PASSWORD_PAPER_FILE",
+]
+
+for _env_var in _PASSTHROUGH_ENV_VARS:
+  _host_value = os.getenv(_env_var)
+  if _host_value is not None:
+    docker_config["environment"][_env_var] = _host_value
 
 if config.ib_gateway_vnc_password_file:
   vnc_password_file_host_path = str(
