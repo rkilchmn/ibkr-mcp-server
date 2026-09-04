@@ -16,24 +16,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
   """Lifespan events for the application."""
   port = getattr(app.state, 'port', 8000)
   logger.info(f"Starting IBKR API/MCP Server on port {port}...")
+  from app.core.config import get_config
+  cfg = get_config()
+  logger.info(
+    f"IBKR Gateway tradingmode={cfg.ib_gateway_tradingmode} "
+    f"(change with --ib-gateway-tradingmode=live)"
+  )
+  logger.info(
+    f"IBKR Gateway readonly={cfg.ib_gateway_readonly} "
+    f"(change with --ib-gateway-readonly=false)"
+  )
+  logger.info(
+    f"MCP transport={cfg.mcp_transport} "
+    f"(change with --mcp-transport=sse)"
+  )
   try:
     success = await gateway.gateway_manager.start_gateway()
     if success:
       logger.info("IBKR Gateway started successfully!")
-      from app.core.config import get_config
-      cfg = get_config()
-      logger.info(
-        f"IBKR Gateway tradingmode={cfg.ib_gateway_tradingmode} "
-        f"(change with --ib-gateway-tradingmode=live)"
-      )
-      logger.info(
-        f"IBKR Gateway readonly={cfg.ib_gateway_readonly} "
-        f"(change with --ib-gateway-readonly=false)"
-      )
-      logger.info(
-        f"MCP transport={cfg.mcp_transport} "
-        f"(change with --mcp-transport=sse)"
-      )
       if cfg.mcp_transport == "streamable-http":
         mcp.mount_http()
       else:
