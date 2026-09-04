@@ -15,10 +15,12 @@
             "args": [
                 "--ib-gateway-tradingmode=paper",
                 "--ib-gateway-readonly=false",
-                "--port=8002"
+                "--port=8002",
+                "--ib-gateway-image=ghcr.io/gnzsnz/tws-rdesktop:latest"
             ], 
             "env": {
                 "IB_GATEWAY_VNC_PORT": "5901",
+                "TWS_RDP_PORT": "3391",
                 "VNC_SERVER_PASSWORD": "ibkr-gateway"
             }
         }

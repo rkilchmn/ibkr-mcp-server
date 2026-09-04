@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 from app.core.config import init_config
 
+
 def parse_args() -> argparse.Namespace:
   """Parse command line arguments."""
   parser = argparse.ArgumentParser(description="IBKR MCP Server")
@@ -51,6 +52,25 @@ def parse_args() -> argparse.Namespace:
     help="VNC password to enable x11vnc inside the gateway container",
   )
   parser.add_argument(
+    "--ib-gateway-image",
+    type=str,
+    default=None,
+    help="Docker image for IBKR Gateway (default: ghcr.io/gnzsnz/ib-gateway:latest)",
+  )
+  parser.add_argument(
+    "--tws-rdp-port",
+    type=int,
+    default=None,
+    help="Host port for container-side RDP (default: 3389)",
+  )
+  parser.add_argument(
+    "--password-file",
+    type=str,
+    default=None,
+    help="Host path to the abc password file "
+    "(default: ~/.secrets/ibkr-gateway/abc_password)",
+  )
+  parser.add_argument(
     "--mcp-transport",
     type=str,
     choices=["streamable-http", "sse"],
@@ -59,19 +79,23 @@ def parse_args() -> argparse.Namespace:
   )
   return parser.parse_args()
 
+
 def load_environment():
   """Load environment variables from .env file."""
-  env_path = Path('.') / '.env'
+  env_path = Path(".env")
   load_dotenv(dotenv_path=env_path)
-  
+
   # Required environment variables
-  required_vars = ['IB_GATEWAY_USERNAME']
+  required_vars = ["IB_GATEWAY_USERNAME"]
   missing_vars = [var for var in required_vars if not os.getenv(var)]
-  
+
   if missing_vars:
-    raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
-  
+    raise ValueError(
+      f"Missing required environment variables: {', '.join(missing_vars)}",
+    )
+
   return os.environ
+
 
 def main() -> None:
   """Run the app."""
@@ -95,11 +119,18 @@ def main() -> None:
     mode=args.mode,
     ib_gateway_tradingmode=args.ib_gateway_tradingmode,
     ib_gateway_readonly=args.ib_gateway_readonly,
-    ib_gateway_vnc_password=args.ib_gateway_vnc_password or env.get("IB_GATEWAY_VNC_PASSWORD"),
+    ib_gateway_vnc_password=args.ib_gateway_vnc_password
+    or env.get("IB_GATEWAY_VNC_PASSWORD"),
+    ib_gateway_image=args.ib_gateway_image or env.get("IB_IMAGE_NAME"),
+    password_file=args.password_file or env.get("PASSWORD_FILE"),
+    tws_rdp_port=args.tws_rdp_port
+    if args.tws_rdp_port
+    else int(env.get("TWS_RDP_PORT", "3389")),
     mcp_transport=args.mcp_transport,
   )
 
-  from app.main import app # noqa: PLC0415
+  from app.main import app  # noqa: PLC0415
+
   app.state.port = config.application_port
   uvicorn.run(
     app,
@@ -108,6 +139,7 @@ def main() -> None:
     log_level="critical",
     access_log=False,
   )
+
 
 if __name__ == "__main__":
   main()

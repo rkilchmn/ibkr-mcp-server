@@ -1,5 +1,7 @@
 """Configuration for the application."""
+
 from pydantic_settings import BaseSettings
+
 
 class Config(BaseSettings):
   """Global configuration for the application."""
@@ -25,6 +27,9 @@ class Config(BaseSettings):
   ib_gateway_tradingmode: str = "paper"
   ib_gateway_readonly: bool = True
   ib_gateway_vnc_password: str | None = None
+  ib_gateway_image: str = "ghcr.io/gnzsnz/ib-gateway:latest"
+  password_file: str | None = None
+  tws_rdp_port: int = 3389
   mcp_transport: str = "streamable-http"
 
   # Timeout configuration (in seconds)
@@ -54,14 +59,17 @@ class ConfigManager:
     ib_gateway_password_file: str | None = None,
     log_level: str = "INFO",
     mode: str = "PROD",
-ib_gateway_tradingmode: str = "paper",
+    ib_gateway_tradingmode: str = "paper",
     ib_gateway_readonly: bool = True,
     ib_gateway_vnc_password: str | None = None,
+    ib_gateway_image: str = "ghcr.io/gnzsnz/ib-gateway:latest",
+    password_file: str | None = None,
+    tws_rdp_port: int = 3389,
     mcp_transport: str = "streamable-http",
   ) -> Config:
     """Initialize the global config with CLI parameters.
 
-      Args:
+    Args:
         ib_gateway_username: IBKR Gateway username
         ib_gateway_password: IBKR Gateway password
           (optional, for backward compatibility)
@@ -73,8 +81,13 @@ ib_gateway_tradingmode: str = "paper",
         ib_gateway_tradingmode: Trading mode (paper/live)
         ib_gateway_readonly: IBKR Gateway read-only mode
         ib_gateway_vnc_password: VNC password to enable x11vnc
+        ib_gateway_image: Docker image for IBKR Gateway
+        password_file: Host path to the abc password file
+          (defaults to ~/.secrets/ibkr-gateway/abc_password)
+        tws_rdp_port: Container-side VNC/RDP port (default: 5900)
         mcp_transport: MCP transport type (streamable-http or sse)
-      """
+
+    """
     config_kwargs = {}
 
     config_kwargs["ib_gateway_username"] = ib_gateway_username
@@ -89,14 +102,20 @@ ib_gateway_tradingmode: str = "paper",
     config_kwargs["ib_gateway_readonly"] = ib_gateway_readonly
     if ib_gateway_vnc_password:
       config_kwargs["ib_gateway_vnc_password"] = ib_gateway_vnc_password
+    config_kwargs["ib_gateway_image"] = ib_gateway_image
+    if password_file:
+      config_kwargs["password_file"] = password_file
+    config_kwargs["tws_rdp_port"] = tws_rdp_port
     config_kwargs["mcp_transport"] = mcp_transport
     cls._instance = Config(**config_kwargs)
     return cls._instance
+
 
 # Convenience functions
 def get_config() -> Config:
   """Get the global config instance."""
   return ConfigManager.get_config()
+
 
 def init_config(
   ib_gateway_username: str,
@@ -105,11 +124,14 @@ def init_config(
   ib_gateway_password_file: str | None = None,
   log_level: str = "INFO",
   mode: str = "PROD",
-ib_gateway_tradingmode: str = "paper",
-    ib_gateway_readonly: bool = True,
-    ib_gateway_vnc_password: str | None = None,
-    mcp_transport: str = "streamable-http",
-  ) -> Config:
+  ib_gateway_tradingmode: str = "paper",
+  ib_gateway_readonly: bool = True,
+  ib_gateway_vnc_password: str | None = None,
+  ib_gateway_image: str = "ghcr.io/gnzsnz/ib-gateway:latest",
+  password_file: str | None = None,
+  tws_rdp_port: int = 3389,
+  mcp_transport: str = "streamable-http",
+) -> Config:
   """Initialize the global config with CLI parameters.
 
   Args:
@@ -123,7 +145,12 @@ ib_gateway_tradingmode: str = "paper",
       ib_gateway_tradingmode: Trading mode (paper/live)
       ib_gateway_readonly: IBKR Gateway read-only mode
       ib_gateway_vnc_password: VNC password to enable x11vnc
+      ib_gateway_image: Docker image for IBKR Gateway
+      password_file: Host path to the abc password file
+      (defaults to ~/.secrets/ibkr-gateway/abc_password)
+      tws_rdp_port: Container-side VNC/RDP port (default: 5900)
       mcp_transport: MCP transport type (streamable-http or sse)
+
   """
   return ConfigManager.init_config(
     ib_gateway_username=ib_gateway_username,
@@ -135,5 +162,8 @@ ib_gateway_tradingmode: str = "paper",
     ib_gateway_tradingmode=ib_gateway_tradingmode,
     ib_gateway_readonly=ib_gateway_readonly,
     ib_gateway_vnc_password=ib_gateway_vnc_password,
+    ib_gateway_image=ib_gateway_image,
+    password_file=password_file,
+    tws_rdp_port=tws_rdp_port,
     mcp_transport=mcp_transport,
   )
