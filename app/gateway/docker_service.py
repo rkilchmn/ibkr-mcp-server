@@ -137,6 +137,35 @@ for _env_var in _PASSTHROUGH_ENV_VARS:
   if _host_value is not None:
     docker_config["environment"][_env_var] = _host_value
 
+# Configure TWS settings persistence volume.
+# Defaults per image:
+#   ib-gateway: host ./tws_settings -> container /home/ibgateway/tws_settings
+#   tws-rdesktop: host ./config -> container /config
+_tws_settings_host_path = config.ib_gateway_tws_settings_path
+if _tws_settings_host_path:
+  _tws_settings_host_path = str(Path(_tws_settings_host_path).expanduser())
+
+if _is_tws_image:
+  _default_tws_settings_container_path = "/config"
+  _default_tws_settings_host_path = str(Path("config").resolve())
+else:
+  _default_tws_settings_container_path = "/home/ibkr/tws_settings"
+  _default_tws_settings_host_path = str(Path("tws_settings").resolve())
+
+_tws_settings_container_path = _default_tws_settings_container_path
+if not _tws_settings_host_path:
+  _tws_settings_host_path = _default_tws_settings_host_path
+
+docker_config["environment"]["TWS_SETTINGS_PATH"] = _tws_settings_container_path
+docker_config["volumes"][_tws_settings_host_path] = {
+  "bind": _tws_settings_container_path,
+  "mode": "rw",
+}
+logger.debug(
+  f"Bind-mounted {_tws_settings_host_path} -> "
+  f"{_tws_settings_container_path} for TWS settings persistence"
+)
+
 if config.ib_gateway_vnc_password_file:
   vnc_password_file_host_path = str(
     Path(config.ib_gateway_vnc_password_file).expanduser(),

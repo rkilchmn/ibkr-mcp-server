@@ -64,6 +64,13 @@ def parse_args() -> argparse.Namespace:
     help="Host port for container-side RDP (default: 3389)",
   )
   parser.add_argument(
+    "--ib-gateway-tws-settings-path",
+    type=str,
+    default=None,
+    help="Host path for TWS settings persistence "
+    "(default: ./tws_settings for ib-gateway, ./config for tws-rdesktop)",
+  )
+  parser.add_argument(
     "--password-file",
     type=str,
     default=None,
@@ -134,6 +141,8 @@ def main() -> None:
     tws_rdp_port=args.tws_rdp_port
     if args.tws_rdp_port
     else int(env.get("TWS_RDP_PORT", "3389")),
+    ib_gateway_tws_settings_path=args.ib_gateway_tws_settings_path
+    or env.get("IB_GATEWAY_TWS_SETTINGS_PATH"),
     mcp_transport=args.mcp_transport,
   )
 

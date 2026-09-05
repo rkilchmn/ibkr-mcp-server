@@ -14,3 +14,7 @@ wheels/
 
 # Log files
 logs/
+
+# TWS/Gateway settings persistence directories
+tws_settings/
+config/

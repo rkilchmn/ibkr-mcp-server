@@ -31,6 +31,7 @@ class Config(BaseSettings):
   ib_gateway_image: str = "ghcr.io/gnzsnz/ib-gateway:latest"
   password_file: str | None = None
   tws_rdp_port: int = 3389
+  ib_gateway_tws_settings_path: str | None = None
   mcp_transport: str = "streamable-http"
 
   # Timeout configuration (in seconds)
@@ -67,6 +68,7 @@ class ConfigManager:
     ib_gateway_image: str = "ghcr.io/gnzsnz/ib-gateway:latest",
     password_file: str | None = None,
     tws_rdp_port: int = 3389,
+    ib_gateway_tws_settings_path: str | None = None,
     mcp_transport: str = "streamable-http",
   ) -> Config:
     """Initialize the global config with CLI parameters.
@@ -89,6 +91,8 @@ class ConfigManager:
         password_file: Host path to the abc password file
           (defaults to ~/.secrets/ibkr-gateway/abc_password)
         tws_rdp_port: Host port for container-side RDP (default: 3389)
+        ib_gateway_tws_settings_path: Host path for TWS settings persistence
+          (defaults to ./tws_settings for ib-gateway, ./config for tws-rdesktop)
         mcp_transport: MCP transport type (streamable-http or sse)
 
     """
@@ -112,6 +116,8 @@ class ConfigManager:
     if password_file:
       config_kwargs["password_file"] = password_file
     config_kwargs["tws_rdp_port"] = tws_rdp_port
+    if ib_gateway_tws_settings_path:
+      config_kwargs["ib_gateway_tws_settings_path"] = ib_gateway_tws_settings_path
     config_kwargs["mcp_transport"] = mcp_transport
     cls._instance = Config(**config_kwargs)
     return cls._instance
@@ -137,6 +143,7 @@ def init_config(
     ib_gateway_image: str = "ghcr.io/gnzsnz/ib-gateway:latest",
     password_file: str | None = None,
     tws_rdp_port: int = 3389,
+    ib_gateway_tws_settings_path: str | None = None,
     mcp_transport: str = "streamable-http",
 ) -> Config:
     """Initialize the global config with CLI parameters.
@@ -159,6 +166,7 @@ def init_config(
         password_file: Host path to the abc password file
         (defaults to ~/.secrets/ibkr-gateway/abc_password)
         tws_rdp_port: Host port for container-side RDP (default: 3389)
+        ib_gateway_tws_settings_path: Host path for TWS settings persistence
         mcp_transport: MCP transport type (streamable-http or sse)
 
     """
@@ -176,5 +184,6 @@ def init_config(
         ib_gateway_image=ib_gateway_image,
         password_file=password_file,
         tws_rdp_port=tws_rdp_port,
+        ib_gateway_tws_settings_path=ib_gateway_tws_settings_path,
         mcp_transport=mcp_transport,
     )
