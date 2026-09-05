@@ -1,6 +1,7 @@
 """Docker service for the IBKR Gateway."""
 
 import hashlib
+import json
 import os
 import time
 import asyncio
@@ -44,6 +45,44 @@ else:
   API_PORT = HOST_PAPER_API_PORT
 
 CONTAINER_SECRETS_PATH = "/run/secrets"
+
+# Startup timing: suppress connection errors during initial container boot.
+# Different images warm up at different speeds.
+_DEFAULT_STARTUP_PERIODS = {
+  "ib-gateway": 90,
+  "tws-rdesktop": 150,
+}
+_IMAGE_KEY = "tws-rdesktop" if _is_tws_image else "ib-gateway"
+_STARTUP_PERIOD = int(
+  os.getenv("IB_GATEWAY_STARTUP_PERIOD", "")
+  or _DEFAULT_STARTUP_PERIODS.get(_IMAGE_KEY, 120)
+)
+_STARTUP_TIMINGS_FILE = Path(".docker/startup-timings.json")
+
+
+def _load_startup_timings() -> dict[str, int]:
+  """Load persisted startup timings."""
+  if _STARTUP_TIMINGS_FILE.exists():
+    try:
+      return json.loads(_STARTUP_TIMINGS_FILE.read_text())
+    except Exception:
+      return {}
+  return {}
+
+
+def _save_startup_timings(timings: dict[str, int]) -> None:
+  """Persist startup timings."""
+  _STARTUP_TIMINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+  _STARTUP_TIMINGS_FILE.write_text(json.dumps(timings, indent=2))
+
+
+_startup_timings = _load_startup_timings()
+_effective_startup_period = _startup_timings.get(_IMAGE_KEY, _STARTUP_PERIOD)
+
+
+def _get_startup_period() -> int:
+  """Return the startup period for the current image."""
+  return _effective_startup_period
 
 # Determine the password file host path
 password_file_host_path: str | None = None
@@ -370,7 +409,7 @@ class IBKRGatewayDockerService:
           if existing_container.status == "running":
             logger.info("Stopping running container before compose rotation")
             existing_container.stop(timeout=self._connection_timeout)
-          existing_container.remove()
+          existing_container.remove(force=True)
         except docker.errors.NotFound:
           pass
 
@@ -400,9 +439,9 @@ class IBKRGatewayDockerService:
             f'"{running_image}", but "{requested_image}" was requested; restarting',
           )
           existing_container.stop(timeout=self._connection_timeout)
-          existing_container.remove()
+          existing_container.remove(force=True)
         else:
-          existing_container.remove()
+          existing_container.remove(force=True)
       except docker.errors.NotFound:
         pass
 
@@ -480,14 +519,39 @@ class IBKRGatewayDockerService:
 
   async def wait_for_container_ready(self) -> bool:
     """Wait for the IBKR Gateway container to be ready."""
+    startup_period = _get_startup_period()
     timer = 0
-    while not await self.health_check():
-      if timer > self._gateway_timeout:
-        logger.error(f"IBKR Gateway not ready after {self._gateway_timeout} seconds")
-        return False
-      await asyncio.sleep(2)
-      timer += 2
+    check_interval = 5
+
+    while timer < startup_period:
+      await asyncio.sleep(check_interval)
+      timer += check_interval
+      logger.info(
+        f"Waiting for IBKR Gateway container to become ready "
+        f"({timer}/{startup_period}s elapsed)"
+      )
+
+    while True:
+      if not await self.health_check():
+        if timer > self._gateway_timeout:
+          logger.error(
+            f"IBKR Gateway not ready after {self._gateway_timeout} seconds"
+          )
+          return False
+        await asyncio.sleep(check_interval)
+        timer += check_interval
+        continue
+      break
+
     logger.debug(f"IBKR Gateway container is ready after {timer} seconds")
+
+    timings = _load_startup_timings()
+    timings[_IMAGE_KEY] = timer
+    _save_startup_timings(timings)
+    logger.debug(
+      f"Persisted startup timing for {_IMAGE_KEY}: {timer}s"
+    )
+
     return True
 
   async def get_container_status(self) -> dict[str, Any]:
@@ -567,14 +631,14 @@ class IBKRGatewayDockerService:
       if self.container:
         logger.debug("Stopping IBKR Gateway container...")
         self.container.stop(timeout=self._connection_timeout)
-        self.container.remove()
+        self.container.remove(force=True)
         self.container = None
         logger.debug("IBKR Gateway container stopped and removed")
         return True
       try:
         container = self.client.containers.get(self.container_name)
         container.stop(timeout=self._connection_timeout)
-        container.remove()
+        container.remove(force=True)
         logger.debug("IBKR Gateway container stopped and removed")
       except docker.errors.NotFound:
         logger.debug("No IBKR Gateway container found to stop")
