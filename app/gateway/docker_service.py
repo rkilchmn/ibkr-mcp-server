@@ -1,9 +1,11 @@
 """Docker service for the IBKR Gateway."""
 
+import hashlib
 import os
 import time
 import asyncio
 import docker
+import yaml
 from pathlib import Path
 from datetime import datetime, UTC
 from ib_async import IB
@@ -282,6 +284,62 @@ class IBKRGatewayDockerService:
     self._health_check_interval = 2
     self._connection_timeout = config.ib_connection_timeout
     self._gateway_timeout = config.ib_gateway_timeout
+    self._compose_dir = Path(".docker")
+    self._compose_file = self._compose_dir / "docker-compose.yml"
+    self._compose_last_success = self._compose_dir / "docker-compose.last-success.yml"
+
+  def _get_compose_paths(self) -> tuple[Path, Path]:
+    """Return the current and last-success compose file paths."""
+    return self._compose_file, self._compose_last_success
+
+  def _generate_compose(self, docker_config: dict[str, Any]) -> dict[str, Any]:
+    """Generate a docker-compose dict from the current docker_config."""
+    ports = docker_config.get("ports") or {}
+    environment = dict(docker_config.get("environment") or {})
+    volumes = docker_config.get("volumes") or {}
+
+    services: dict[str, Any] = {
+      "ibkr-gateway": {
+        "image": docker_config["image"],
+        "container_name": self.container_name,
+        "environment": environment,
+        "volumes": [],
+        "ports": [],
+        "restart": "unless-stopped",
+      }
+    }
+
+    if USE_HOST_NETWORK:
+      services["ibkr-gateway"]["network_mode"] = "host"
+    else:
+      for container_port, host_bindings in ports.items():
+        port_number = container_port.replace("/tcp", "")
+        for binding in host_bindings:
+          host_port = binding.get("HostPort", port_number)
+          host_ip = binding.get("HostIp", "127.0.0.1")
+          services["ibkr-gateway"]["ports"].append(
+            f"{host_ip}:{host_port}:{port_number}"
+          )
+
+    for host_path, vol_config in volumes.items():
+      bind = vol_config.get("bind", host_path)
+      mode = vol_config.get("mode", "rw")
+      services["ibkr-gateway"]["volumes"].append(
+        f"{host_path}:{bind}:{mode}"
+      )
+
+    return {"services": services}
+
+  def _write_compose(self, compose: dict[str, Any], path: Path) -> None:
+    """Write compose dict to a YAML file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(yaml.safe_dump(compose, sort_keys=False))
+
+  def _compose_fingerprint(self, docker_config: dict[str, Any]) -> str:
+    """Return a stable fingerprint for the generated compose content."""
+    compose = self._generate_compose(docker_config)
+    payload = yaml.safe_dump(compose, sort_keys=True)
+    return hashlib.sha256(payload.encode()).hexdigest()
 
   def _pull_image_with_progress(self, image_name: str) -> None:
     """Pull a Docker image and log download progress."""
@@ -294,22 +352,51 @@ class IBKRGatewayDockerService:
   async def start_gateway(self) -> bool:
     """Start the IBKR Gateway container."""
     try:
-      # Check if container already exists
+      current_compose, last_success = self._get_compose_paths()
+      new_compose = self._generate_compose(docker_config)
+      new_content = yaml.safe_dump(new_compose, sort_keys=False)
+      new_hash = hashlib.sha256(new_content.encode()).hexdigest()
+
+      old_hash = None
+      if last_success.exists():
+        old_hash = hashlib.sha256(last_success.read_bytes()).hexdigest()
+
+      config_changed = old_hash != new_hash
+
+      if config_changed:
+        logger.info("Generated compose differs from last success; rotating")
+        try:
+          existing_container = self.client.containers.get(self.container_name)
+          if existing_container.status == "running":
+            logger.info("Stopping running container before compose rotation")
+            existing_container.stop(timeout=self._connection_timeout)
+          existing_container.remove()
+        except docker.errors.NotFound:
+          pass
+
+        if last_success.exists():
+          backup = last_success.with_suffix(".last-success.bak")
+          if backup.exists():
+            backup.unlink()
+          last_success.replace(backup)
+
+        self._write_compose(new_compose, current_compose)
+        logger.info(f"Wrote new compose file: {current_compose}")
+
       try:
         existing_container = self.client.containers.get(self.container_name)
         if existing_container.status == "running":
           running_image = existing_container.attrs["Config"]["Image"]
           requested_image = docker_config["image"]
-          if running_image == requested_image:
+          if running_image == requested_image and not config_changed:
             logger.debug(
               f"Container {self.container_name} is already running "
               f'with image "{requested_image}"',
             )
             self.container = existing_container
             return True
-          # Image mismatch — stop and remove the old container
           logger.info(
-            f"Container {self.container_name} is running with image "
+            f"Container {self.container_name} running with image "
             f'"{running_image}", but "{requested_image}" was requested; restarting',
           )
           existing_container.stop(timeout=self._connection_timeout)
@@ -352,6 +439,10 @@ class IBKRGatewayDockerService:
       if not await self.wait_for_container_ready():
         logger.error("Container failed to become ready")
         return False
+
+      # Persist compose on successful start
+      self._write_compose(new_compose, last_success)
+      logger.info(f"Persisted successful compose file: {last_success}")
 
     except Exception:
       logger.exception("Failed to start IBKR Gateway container")
