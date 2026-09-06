@@ -23,7 +23,12 @@ A FastAPI application that provides an MCP (Model Context Protocol) server for I
 
 ### Credentials Setup
 
-The MCP server reads the IBKR Gateway password from a **host file** that is bind-mounted into the Gateway container at `/run/secrets/tws_password`. The MCP process does **not** read this file — only Docker and the container do. The file must be readable by the container's runtime user (uid `911` / group `911` inside the `ghcr.io/gnzsnz/ib-gateway` image).
+The MCP server reads the IBKR Gateway password from a **host file** that is bind-mounted into the Gateway container at `/run/secrets/tws_password`. The MCP process does **not** read this file — only Docker and the container do. The file permissions depend on the container image's runtime user ID:
+
+| Image | Runtime user | Password file ownership |
+|-------|-------------|------------------------|
+| `ghcr.io/gnzsnz/ib-gateway` | uid `1000` | `root:1000`, mode `0440` |
+| `ghcr.io/gnzsnz/tws-rdesktop` | uid `911` | `root:911`, mode `0440` |
 
 **Recommended setup (default):**
 
@@ -37,10 +42,10 @@ sudo chmod 0440 ~/.secrets/ibkr-gateway/ebljlc158
 
 This creates a file owned by `root:911` with mode `0440` — readable by the container's uid/gid (`abc`), unreadable by other host users. The MCP server bind-mounts it directly into the container; no temporary copies are made.
 
-**Custom secrets directory:** set `IB_GATEWAY_PASSWORD_PATH` in `.env` to override the default `~/.secrets/ibkr-gateway/`. The MCP server constructs the secret file path as `<IB_GATEWAY_PASSWORD_PATH>/<IB_GATEWAY_USERNAME>`:
+**Custom secrets directory:** set `IB_GATEWAY_CREDENTIALS_PATH` in `.env` to override the default `~/.secrets/ib-gateway/`. The MCP server constructs the secret file path as `<IB_GATEWAY_CREDENTIALS_PATH>/<IB_GATEWAY_USERNAME>`:
 
 ```bash
-IB_GATEWAY_PASSWORD_PATH=/secure/secrets   # looks for /secure/secrets/ebljlc158
+IB_GATEWAY_CREDENTIALS_PATH=/secure/secrets   # looks for /secure/secrets/ebljlc158
 ```
 
 **Custom file path:** set `IB_GATEWAY_PASSWORD_FILE` to use an explicit full path (no username suffix). This takes precedence over `IB_GATEWAY_PASSWORD_PATH`:
@@ -49,13 +54,19 @@ IB_GATEWAY_PASSWORD_PATH=/secure/secrets   # looks for /secure/secrets/ebljlc158
 IB_GATEWAY_PASSWORD_FILE=/secure/path/tws_password
 ```
 
-**Optional abc_password file:** set `PASSWORD_FILE` to specify a host path to an additional secret file that will be bind-mounted into the container at `/run/secrets/abc_password` (exposed as `PASSWD_FILE` env var inside the container). Default: `~/.secrets/ibkr-gateway/abc_password` (or `<IB_GATEWAY_PASSWORD_PATH>/abc_password` if that's set):
+**Optional abc password file:** set `PASSWORD_FILE` to specify a host path to an additional secret file that will be bind-mounted into the container at `/run/secrets/abc_password` (exposed as `PASSWD_FILE` env var inside the container). Default: `~/.secrets/ib-gateway/abc_password` (or `<IB_GATEWAY_CREDENTIALS_PATH>/abc_password` if that's set). Can also use `--password-file` CLI arg:
 
 ```bash
 PASSWORD_FILE=/secure/path/abc_password
 ```
 
-The same permission requirements apply: the file must be readable by the container's uid/gid (`911`). Modes that work include `0440` (group-readable), `0604` (world-readable, no group/other write), or `0644`.
+**VNC password file:** set `VNC_PASSWORD_FILE` to specify a host path to a VNC password file that will be bind-mounted read-only into the container at `/run/secrets/vnc_password` (exposed as `VNC_SERVER_PASSWORD_FILE` inside the container). Can also use `--vnc-password-file` CLI arg:
+
+```bash
+VNC_PASSWORD_FILE=/secure/path/vnc_password
+```
+
+The same permission requirements apply: the file must be readable by the container's uid/gid (`911` for `tws-rdesktop`, `1000` for `ib-gateway`). Modes that work include `0440` (group-readable), `0604` (world-readable, no group/other write), or `0644`.
 
 **Security notes:**
 
@@ -77,22 +88,130 @@ The same permission requirements apply: the file must be readable by the contain
    ```
 
 3. **Run the server:**
-    ```bash
-    ./run.sh
-    ```
-    
-    Or manually:
-    ```bash
-    uv run python main.py --ib-gateway-tradingmode=paper
-    ```
-    
-    Credentials are loaded from the `.env` file.
+   ```bash
+   ./run.sh
+   ```
+
+   Or manually:
+   ```bash
+   uv run python main.py --ib-gateway-tradingmode=paper
+   ```
+
+   Credentials are loaded from the `.env` file.
 
 The server will start on `http://localhost:8000` with API docs at `/docs`. MCP server will be available at `http://localhost:8000/mcp`.
 
-4. ** Troubleshoot **
+4. **Troubleshoot**
 
 You can use http://localhost:6080/ for browser based VNC
+
+## Configuration
+
+### Environment Variables (`.env`)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `IB_GATEWAY_USERNAME` | *(required)* | IBKR Gateway username |
+| `IB_GATEWAY_PASSWORD` | *(none)* | IBKR Gateway password (less secure than password file) |
+| `IB_GATEWAY_PASSWORD_FILE` | *(none)* | Explicit path to the password file (takes precedence over `IB_GATEWAY_CREDENTIALS_PATH`) |
+| `IB_GATEWAY_CREDENTIALS_PATH` | `~/.secrets/ib-gateway` | Directory for password files; path is `<IB_GATEWAY_CREDENTIALS_PATH>/<IB_GATEWAY_USERNAME>` |
+| `IB_GATEWAY_DATA_PATH` | `ib-gateway-data` | Base directory for `.docker/` and TWS settings |
+| `PASSWORD_FILE` | `~/.secrets/ib-gateway/abc_password` | Host path to abc_password secret file |
+| `VNC_PASSWORD_FILE` | `~/.secrets/ib-gateway/vnc_password` | Host path to VNC password secret file |
+| `IB_GATEWAY_VNC_PASSWORD` | *(none)* | VNC password (less secure than VNC password file) |
+| `IB_GATEWAY_VNC_PORT` | `5900` | Host port for VNC |
+| `IB_GATEWAY_IMAGE` | `ghcr.io/gnzsnz/ib-gateway:latest` | Docker image for IBKR Gateway |
+| `IB_GATEWAY_TWS_SETTINGS_PATH` | *(image-specific)* | Host path for TWS settings persistence (default: `<IB_GATEWAY_DATA_PATH>/tws_settings` for ib-gateway, `<IB_GATEWAY_DATA_PATH>/config` for tws-rdesktop) |
+| `TWS_RDP_PORT` | `3389` | Host port for container-side RDP |
+| `MCP_PORT` | `8000` | MCP application port |
+| `READ_ONLY_API` | `true` | IBKR Gateway read-only API mode |
+| `ENV_FILE` | `.env` | Path to the `.env` file |
+| `IB_GATEWAY_TRADINGMODE` | `paper` | Trading mode (`paper` or `live`) |
+| `IB_GATEWAY_AUTO_RESTART_TIME` | *(none)* | Auto-restart time for the gateway |
+| `IB_GATEWAY_USE_HOST_NETWORK` | `false` | Use Docker host network instead of bridge |
+| `IB_GATEWAY_STARTUP_PERIOD` | *(image-specific)* | Startup period in seconds before health checks |
+| `IB_CONNECTION_TIMEOUT` | `30` | IB API connection timeout (seconds) |
+| `IB_GATEWAY_TIMEOUT` | `300` | Gateway container startup timeout (seconds) |
+| `IB_REQUEST_TIMEOUT` | `30` | Request timeout (seconds) |
+| `ENABLE_FILE_LOGGING` | `false` | Enable file logging |
+| `LOG_FILE_PATH` | `logs/app.log` | Log file location |
+| `LOG_LEVEL` | `INFO` | Log level |
+
+**Image passthrough env vars** (passed through to the container only when explicitly set):
+
+| Variable | Description |
+|----------|-------------|
+| `TWS_ACCEPT_INCOMING` | Accept incoming TWS connections |
+| `TWOFA_TIMEOUT_ACTION` | Two-factor authentication timeout action |
+| `TWOFA_DEVICE` | Two-factor authentication device |
+| `TWOFA_EXIT_INTERVAL` | Two-factor authentication exit interval |
+| `RELOGIN_AFTER_TWOFA_TIMEOUT` | Re-login after two-factor timeout |
+| `EXISTING_SESSION_DETECTED_ACTION` | Action for existing session detected |
+| `BYPASS_WARNING` | Bypass warning |
+| `ALLOW_BLIND_TRADING` | Allow blind trading |
+| `AUTO_LOGOFF_TIME` | Auto logoff time |
+| `TWS_COLD_RESTART` | TWS cold restart |
+| `SAVE_TWS_SETTINGS` | Save TWS settings |
+| `TIME_ZONE` | Time zone |
+| `TWS_SETTINGS_PATH` | TWS settings path |
+| `TWS_MASTER_CLIENT_ID` | TWS master client ID |
+| `JAVA_HEAP_SIZE` | Java heap size |
+| `SSH_TUNNEL` | SSH tunnel |
+| `SSH_OPTIONS` | SSH options |
+| `SSH_ALIVE_INTERVAL` | SSH alive interval |
+| `SSH_ALIVE_COUNT` | SSH alive count |
+| `SSH_PASSPHRASE` | SSH passphrase |
+| `SSH_PASSPHRASE_FILE` | SSH passphrase file |
+| `SSH_REMOTE_PORT` | SSH remote port |
+| `SSH_USER_TUNNEL` | SSH user tunnel |
+| `SSH_RESTART` | SSH restart |
+| `SSH_VNC_PORT` | SSH VNC port |
+| `SSH_RDP_PORT` | SSH RDP port |
+| `PUID` | Process user ID |
+| `PGID` | Process group ID |
+| `PASSWD` | Password |
+| `PASSWD_FILE` | Password file |
+| `START_SCRIPTS` | Start scripts |
+| `X_SCRIPTS` | X scripts |
+| `IBC_SCRIPTS` | IBC scripts |
+| `CUSTOM_CONFIG` | Custom config |
+| `TWS_USERID_PAPER` | TWS user ID for paper trading |
+| `TWS_PASSWORD_PAPER` | TWS password for paper trading |
+| `TWS_PASSWORD_PAPER_FILE` | TWS password file for paper trading |
+
+### CLI Parameters
+
+```
+usage: main.py [--mcp-port MCP_PORT] [--log-level LOG_LEVEL] [--mode {PROD,DEV}]
+               [--ib-gateway-tradingmode {paper,live}] [--read-only-api READ_ONLY_API]
+               [--ib-gateway-vnc-password IB_GATEWAY_VNC_PASSWORD]
+               [--ib-gateway-image IB_GATEWAY_IMAGE] [--tws-rdp-port TWS_RDP_PORT]
+               [--ib-gateway-data-path IB_GATEWAY_DATA_PATH]
+               [--ib-gateway-tws-settings-path IB_GATEWAY_TWS_SETTINGS_PATH]
+               [--ib-gateway-credentials-path IB_GATEWAY_CREDENTIALS_PATH]
+               [--password-file PASSWORD_FILE] [--vnc-password-file VNC_PASSWORD_FILE]
+               [--mcp-transport {streamable-http,sse}] [--ib-gateway-username IB_GATEWAY_USERNAME]
+               [--env-file ENV_FILE]
+```
+
+| Parameter | Description |
+|-----------|-------------|
+| `--mcp-port` | MCP application port (default: 8000, or `MCP_PORT` env var) |
+| `--log-level` | Log level (default: INFO) |
+| `--mode` | Application mode - `PROD` or `DEV` (default: PROD) |
+| `--ib-gateway-tradingmode` | Trading mode - `paper` or `live` (default: paper) |
+| `--read-only-api` | IBKR Gateway read-only API mode - `true` or `false` (default: true, or `READ_ONLY_API` env var) |
+| `--ib-gateway-vnc-password` | VNC password to enable x11vnc inside the gateway container |
+| `--ib-gateway-image` | Docker image for IBKR Gateway (default: ghcr.io/gnzsnz/ib-gateway:latest, or `IB_GATEWAY_IMAGE` env var) |
+| `--tws-rdp-port` | Host port for container-side RDP (default: 3389, or `TWS_RDP_PORT` env var) |
+| `--ib-gateway-data-path` | Base directory for `.docker/` and TWS settings (default: `ib-gateway-data` in current dir, or `IB_GATEWAY_DATA_PATH` env var) |
+| `--ib-gateway-tws-settings-path` | Host path for TWS settings persistence (default: `<IB_GATEWAY_DATA_PATH>/tws_settings` for ib-gateway, `<IB_GATEWAY_DATA_PATH>/config` for tws-rdesktop, or `IB_GATEWAY_TWS_SETTINGS_PATH` env var) |
+| `--ib-gateway-credentials-path` | Host path for credential files (default: `~/.secrets/ib-gateway`, or `IB_GATEWAY_CREDENTIALS_PATH` env var) |
+| `--password-file` | Host path to the abc password file (default: `~/.secrets/ib-gateway/abc_password`, or `PASSWORD_FILE` env var) |
+| `--vnc-password-file` | Host path to the VNC password file (default: `~/.secrets/ib-gateway/vnc_password`, or `VNC_PASSWORD_FILE` env var) |
+| `--mcp-transport` | MCP transport type - `streamable-http` or `sse` (default: streamable-http) |
+| `--ib-gateway-username` | IBKR Gateway username (overrides `IB_GATEWAY_USERNAME` env var) |
+| `--env-file` | Path to the .env file (default: ./.env, or `ENV_FILE` env var) |
 
 ## API Documentation
 
@@ -981,12 +1100,26 @@ curl -X POST "http://localhost:8000/ibkr/connection/reconnect"
 }
 ```
 
+## Docker Files
+
+The server generates and manages Docker compose files and persists startup timings. By default these are stored under `ib-gateway-data/` in the current directory; override with `IB_GATEWAY_DATA_PATH` env var or `--ib-gateway-data-path` CLI arg.
+
+| File | Description |
+|------|-------------|
+| `<data_path>/.docker/docker-compose.yml` | Current Docker compose file used to start the container |
+| `<data_path>/.docker/docker-compose.last-success.yml` | Last successfully deployed compose file (used for comparison and rotation) |
+| `<data_path>/startup-timings.json` | Persisted startup timings per image, used to optimize future startup wait periods |
+| `<data_path>/tws_settings/` | TWS settings persistence directory (for `ib-gateway` image) |
+| `<data_path>/config/` | TWS settings persistence directory (for `tws-rdesktop` image) |
+
+Compose files are automatically rotated when configuration changes (e.g., image change, port change). On successful container start, the current compose is saved to `docker-compose.last-success.yml` and the startup timing is persisted to `startup-timings.json`.
+
 ## Troubleshooting
 
 - **Docker issues**: Ensure Docker daemon is running
 - **Port conflicts**: Check if port 8000 is available
 - **IBKR connection**: Verify credentials and TWS/Gateway setup
-- **Container fails to start / "Permission denied" on the password file**: the file at `IB_GATEWAY_PASSWORD_FILE` must be readable by uid `911` (the container's `abc` user). Use `sudo chown root:911 <file> && sudo chmod 0440 <file>` (recommended) or `chmod 0604 <file>` for a less strict alternative. See the [Credentials Setup](#credentials-setup) section.
+- **Container fails to start / "Permission denied" on the password file**: the file at `IB_GATEWAY_PASSWORD_FILE` must be readable by the container's runtime user (uid `1000` for `ib-gateway`, uid `911` for `tws-rdesktop`). Use `sudo chown root:<uid> <file> && sudo chmod 0440 <file>` (recommended) or `chmod 0604 <file>` for a less strict alternative. See the [Credentials Setup](#credentials-setup) section.
 - **API socket never opens (TWS logs show login complete but no `4002` listener)**: confirm with `docker exec ibkr-gateway cat /proc/net/tcp /proc/net/tcp6 | awk '/0A/ {print}'` — TWS often binds only to IPv6 (`[::]:4002`), which is fine because the MCP client connects via `127.0.0.1` and Linux dual-stack routing accepts it. If only an IPv4 listener is missing, the container's socat is unable to forward and `/ibkr/connection/status` will stay `false` until TWS opens the socket.
 
 ## Debugging

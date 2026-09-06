@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
   )
   logger.info(
     f"IBKR Gateway readonly={cfg.ib_gateway_readonly} "
-    f"(change with --ib-gateway-readonly=false)"
+    f"(change with --read-only-api=false)"
   )
   logger.info(
     f"MCP transport={cfg.mcp_transport} "

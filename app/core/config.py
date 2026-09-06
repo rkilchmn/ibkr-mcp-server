@@ -9,7 +9,8 @@ class Config(BaseSettings):
   ib_gateway_username: str
   ib_gateway_password: str | None = None
   ib_gateway_password_file: str | None = None
-  ib_gateway_password_path: str = "~/.secrets/ibkr-gateway"
+  ib_gateway_credentials_path: str = "~/.secrets/ib-gateway"
+  ib_gateway_data_path: str = "ib-gateway-data"
   application_port: int = 8000
   log_level: str = "INFO"
   mode: str = "PROD"
@@ -69,6 +70,8 @@ class ConfigManager:
     password_file: str | None = None,
     tws_rdp_port: int = 3389,
     ib_gateway_tws_settings_path: str | None = None,
+    ib_gateway_credentials_path: str | None = None,
+    ib_gateway_data_path: str | None = None,
     mcp_transport: str = "streamable-http",
   ) -> Config:
     """Initialize the global config with CLI parameters.
@@ -118,6 +121,10 @@ class ConfigManager:
     config_kwargs["tws_rdp_port"] = tws_rdp_port
     if ib_gateway_tws_settings_path:
       config_kwargs["ib_gateway_tws_settings_path"] = ib_gateway_tws_settings_path
+    if ib_gateway_credentials_path:
+      config_kwargs["ib_gateway_credentials_path"] = ib_gateway_credentials_path
+    if ib_gateway_data_path:
+      config_kwargs["ib_gateway_data_path"] = ib_gateway_data_path
     config_kwargs["mcp_transport"] = mcp_transport
     cls._instance = Config(**config_kwargs)
     return cls._instance
@@ -143,9 +150,11 @@ def init_config(
     ib_gateway_image: str = "ghcr.io/gnzsnz/ib-gateway:latest",
     password_file: str | None = None,
     tws_rdp_port: int = 3389,
-    ib_gateway_tws_settings_path: str | None = None,
+ib_gateway_tws_settings_path: str | None = None,
+    ib_gateway_credentials_path: str | None = None,
+    ib_gateway_data_path: str | None = None,
     mcp_transport: str = "streamable-http",
-) -> Config:
+  ) -> Config:
     """Initialize the global config with CLI parameters.
 
     Args:
@@ -167,7 +176,7 @@ def init_config(
         (defaults to ~/.secrets/ibkr-gateway/abc_password)
         tws_rdp_port: Host port for container-side RDP (default: 3389)
         ib_gateway_tws_settings_path: Host path for TWS settings persistence
-        mcp_transport: MCP transport type (streamable-http or sse)
+mcp_transport: MCP transport type (streamable-http or sse)
 
     """
     return ConfigManager.init_config(
@@ -185,5 +194,7 @@ def init_config(
         password_file=password_file,
         tws_rdp_port=tws_rdp_port,
         ib_gateway_tws_settings_path=ib_gateway_tws_settings_path,
+        ib_gateway_credentials_path=ib_gateway_credentials_path,
+        ib_gateway_data_path=ib_gateway_data_path,
         mcp_transport=mcp_transport,
-    )
+      )

@@ -57,7 +57,7 @@ _STARTUP_PERIOD = int(
   os.getenv("IB_GATEWAY_STARTUP_PERIOD", "")
   or _DEFAULT_STARTUP_PERIODS.get(_IMAGE_KEY, 120)
 )
-_STARTUP_TIMINGS_FILE = Path(".docker/startup-timings.json")
+_STARTUP_TIMINGS_FILE = Path(config.ib_gateway_data_path) / "startup-timings.json"
 
 
 def _load_startup_timings() -> dict[str, int]:
@@ -92,7 +92,7 @@ elif config.ib_gateway_password:
   password_file_host_path = None
 else:
   password_file_host_path = str(
-    Path(config.ib_gateway_password_path, config.ib_gateway_username).expanduser(),
+    Path(config.ib_gateway_credentials_path, config.ib_gateway_username).expanduser(),
   )
 
 if password_file_host_path:
@@ -188,10 +188,10 @@ if _tws_settings_host_path:
 
 if _is_tws_image:
   _default_tws_settings_container_path = "/config"
-  _default_tws_settings_host_path = str(Path("config").resolve())
+  _default_tws_settings_host_path = (Path(config.ib_gateway_data_path) / "config").resolve()
 else:
   _default_tws_settings_container_path = "/home/ibkr/tws_settings"
-  _default_tws_settings_host_path = str(Path("tws_settings").resolve())
+  _default_tws_settings_host_path = (Path(config.ib_gateway_data_path) / "tws_settings").resolve()
 
 _tws_settings_container_path = _default_tws_settings_container_path
 if not _tws_settings_host_path:
@@ -215,7 +215,7 @@ elif config.ib_gateway_vnc_password:
   vnc_password_file_host_path = None
 else:
   vnc_password_file_host_path = str(
-    Path(config.ib_gateway_password_path, "vnc_password").expanduser(),
+    Path(config.ib_gateway_credentials_path, "vnc_password").expanduser(),
   )
 
 # Configure VNC password: pass the file path through to Docker via a
@@ -278,7 +278,7 @@ if config.password_file:
   )
 else:
   abc_password_file_host_path = str(
-    Path(config.ib_gateway_password_path, "abc_password").expanduser(),
+    Path(config.ib_gateway_credentials_path, "abc_password").expanduser(),
   )
 
 # Configure abc password: pass the file path through to Docker via a
@@ -323,7 +323,8 @@ class IBKRGatewayDockerService:
     self._health_check_interval = 2
     self._connection_timeout = config.ib_connection_timeout
     self._gateway_timeout = config.ib_gateway_timeout
-    self._compose_dir = Path(".docker")
+    self._data_dir = Path(config.ib_gateway_data_path)
+    self._compose_dir = self._data_dir / ".docker"
     self._compose_file = self._compose_dir / "docker-compose.yml"
     self._compose_last_success = self._compose_dir / "docker-compose.last-success.yml"
 

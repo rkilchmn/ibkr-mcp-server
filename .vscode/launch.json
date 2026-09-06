@@ -14,9 +14,9 @@
             "justMyCode": false,
             "args": [
                 "--ib-gateway-tradingmode=paper",
-                "--ib-gateway-readonly=false",
-                "--port=8002",
-                // "--ib-gateway-image=ghcr.io/gnzsnz/tws-rdesktop:latest"
+                "--read-only-api=false",
+                "--mcp-port=8002",
+                "--ib-gateway-image=ghcr.io/gnzsnz/tws-rdesktop:latest"
             ], 
             "env": {
                 "IB_GATEWAY_VNC_PORT": "5901",

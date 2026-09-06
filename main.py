@@ -14,10 +14,10 @@ def parse_args() -> argparse.Namespace:
   """Parse command line arguments."""
   parser = argparse.ArgumentParser(description="IBKR MCP Server")
   parser.add_argument(
-    "--port",
+    "--mcp-port",
     type=int,
-    default=8000,
-    help="Application port (default: 8000)",
+    default=None,
+    help="MCP application port (default: 8000, or MCP_PORT env var)",
   )
   parser.add_argument(
     "--log-level",
@@ -40,10 +40,10 @@ def parse_args() -> argparse.Namespace:
     help="IBKR Gateway trading mode - 'paper' or 'live' (default: paper)",
   )
   parser.add_argument(
-    "--ib-gateway-readonly",
+    "--read-only-api",
     type=lambda x: x.lower() == "true",
-    default=True,
-    help="IBKR Gateway read-only mode - 'true' or 'false' (default: true)",
+    default=None,
+    help="IBKR Gateway read-only API mode - 'true' or 'false' (default: true)",
   )
   parser.add_argument(
     "--ib-gateway-vnc-password",
@@ -64,11 +64,23 @@ def parse_args() -> argparse.Namespace:
     help="Host port for container-side RDP (default: 3389)",
   )
   parser.add_argument(
+    "--ib-gateway-data-path",
+    type=str,
+    default=None,
+    help="Base directory for config/ and .docker/ (default: ib-gateway-data in current dir, or IB_GATEWAY_DATA_PATH env var)",
+  )
+  parser.add_argument(
     "--ib-gateway-tws-settings-path",
     type=str,
     default=None,
     help="Host path for TWS settings persistence "
     "(default: ./tws_settings for ib-gateway, ./config for tws-rdesktop)",
+  )
+  parser.add_argument(
+    "--ib-gateway-credentials-path",
+    type=str,
+    default=None,
+    help="Host path for credential files (default: ~/.secrets/ib-gateway, or IB_GATEWAY_CREDENTIALS_PATH env var)",
   )
   parser.add_argument(
     "--password-file",
@@ -91,52 +103,64 @@ def parse_args() -> argparse.Namespace:
     default="streamable-http",
     help="MCP transport type - 'streamable-http' or 'sse' (default: streamable-http)",
   )
+  parser.add_argument(
+    "--ib-gateway-username",
+    type=str,
+    default=None,
+    help="IBKR Gateway username (overrides IB_GATEWAY_USERNAME env var)",
+  )
+  parser.add_argument(
+    "--env-file",
+    type=str,
+    default=None,
+    help="Path to the .env file (default: ./.env, or ENV_FILE env var)",
+  )
   return parser.parse_args()
 
 
-def load_environment():
+def load_environment(env_file_path: str | None = None):
   """Load environment variables from .env file."""
-  env_path = Path(".env")
-  load_dotenv(dotenv_path=env_path)
-
-  # Required environment variables
-  required_vars = ["IB_GATEWAY_USERNAME"]
-  missing_vars = [var for var in required_vars if not os.getenv(var)]
-
-  if missing_vars:
-    raise ValueError(
-      f"Missing required environment variables: {', '.join(missing_vars)}",
-    )
+  path = env_file_path or ".env"
+  env_path = Path(path)
+  if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
 
   return os.environ
 
 
 def main() -> None:
   """Run the app."""
-  # Load environment variables first
-  env = load_environment()
   args = parse_args()
+  env_file = args.env_file or os.getenv("ENV_FILE") or ".env"
+  env = load_environment(env_file)
 
-  username = env["IB_GATEWAY_USERNAME"]
+  username = args.ib_gateway_username or env["IB_GATEWAY_USERNAME"]
   # Derive password file path from username if not explicitly set
+  credentials_path = args.ib_gateway_credentials_path or env.get("IB_GATEWAY_CREDENTIALS_PATH")
+  data_path = args.ib_gateway_data_path or env.get("IB_GATEWAY_DATA_PATH")
   password_file = env.get("IB_GATEWAY_PASSWORD_FILE")
   if not password_file:
-    password_file = f"~/.secrets/ibkr/{username}"
+    password_file = f"~/.secrets/ib-gateway/{username}"
 
   # Initialize global config with environment variables and CLI parameters
   config = init_config(
-    application_port=args.port,
+    application_port=args.mcp_port
+    or int(env.get("MCP_PORT", "8000")),
     ib_gateway_username=username,
     ib_gateway_password=env.get("IB_GATEWAY_PASSWORD"),
     ib_gateway_password_file=password_file,
     log_level=args.log_level,
     mode=args.mode,
     ib_gateway_tradingmode=args.ib_gateway_tradingmode,
-    ib_gateway_readonly=args.ib_gateway_readonly,
+    ib_gateway_readonly=args.read_only_api
+    if args.read_only_api is not None
+    else env.get("READ_ONLY_API", "true").lower() == "true",
     ib_gateway_vnc_password=args.ib_gateway_vnc_password
     or env.get("IB_GATEWAY_VNC_PASSWORD"),
     ib_gateway_vnc_password_file=args.vnc_password_file or env.get("VNC_PASSWORD_FILE"),
-    ib_gateway_image=args.ib_gateway_image or env.get("IB_IMAGE_NAME"),
+    ib_gateway_image=args.ib_gateway_image or env.get("IB_GATEWAY_IMAGE"),
+    ib_gateway_credentials_path=credentials_path,
+    ib_gateway_data_path=data_path,
     password_file=args.password_file or env.get("PASSWORD_FILE"),
     tws_rdp_port=args.tws_rdp_port
     if args.tws_rdp_port
