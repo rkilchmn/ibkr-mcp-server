@@ -8,6 +8,7 @@ from .trading import (
   OrderExecution, OpenOrder
 )
 from .market_data import BarData, HistoricalDataRequest
+from .fundamental import FundamentalData, EarningsEvent, Dividend
 from .connection import ConnectionStatus, ReconnectResponse
 
 __all__ = [
@@ -36,6 +37,10 @@ __all__ = [
   # Market data models
   "BarData",
   "HistoricalDataRequest",
+  # Fundamental data models
+  "FundamentalData",
+  "EarningsEvent",
+  "Dividend",
   # Connection models
   "ConnectionStatus",
   "ReconnectResponse",

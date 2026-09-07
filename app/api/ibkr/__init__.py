@@ -12,6 +12,7 @@ from .positions import *
 from .contracts import *
 from .scanners import *
 from .market_data import *
+from .fundamental import *
 from .account import *
 from .trading import *
 from .connection import *

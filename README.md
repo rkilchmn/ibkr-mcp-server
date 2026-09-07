@@ -383,6 +383,81 @@ curl -X GET "http://localhost:8000/ibkr/market_data?contract_ids=265598&contract
 ]
 ```
 
+### Fundamental Data
+
+#### `GET /ibkr/fundamental`
+Get fundamental data for a contract, including earnings dates, dividend information, and financial metrics.
+
+**Query Parameters:**
+- `contract_id`: (Optional) IBKR contract ID. If provided, symbol lookup is skipped.
+- `symbol`: (Optional) Symbol to look up (e.g., AAPL). Required if `contract_id` not provided.
+- `sec_type`: Security type (e.g., STK, OPT, FUT) - used with symbol (default: STK)
+- `exchange`: Exchange (e.g., SMART, ISLAND) - used with symbol
+- `currency`: Currency (e.g., USD) - used with symbol
+- `report_type`: Fundamental report type (default: CalendarReport)
+  - `CalendarReport`: Earnings dates, dividend calendar
+  - `ReportsFinSummary`: Financial summary (P/E, revenue, etc.)
+  - `ReportSnapshot`: Company snapshot (ratios, dividend yield)
+  - `ReportsFinStatements`: Full financial statements
+  - `RESC`: Analyst estimates
+  - `ReportsOwnership`: Company ownership
+
+**Note:** Either `symbol` or `contract_id` must be provided. Using `contract_id` is recommended.
+
+**Example - CalendarReport (earnings & dividends):**
+```bash
+curl -X GET "http://localhost:8000/ibkr/fundamental?symbol=AAPL&report_type=CalendarReport"
+```
+
+**Response:**
+```json
+{
+  "contract_id": 265598,
+  "symbol": "AAPL",
+  "sec_type": "STK",
+  "report_type": "CalendarReport",
+  "next_earnings_date": "2025-01-15",
+  "earnings_estimate": 1.45,
+  "earnings_actual": 1.50,
+  "earnings_history": [
+    {"period": "2024-10-15", "estimate": 1.30, "actual": 1.35}
+  ],
+  "dividend_yield": null,
+  "next_dividend": {
+    "ex_date": "2025-01-10",
+    "pay_date": "2025-01-20",
+    "amount": 0.24
+  },
+  "dividend_history": [
+    {"ex_date": "2024-10-10", "pay_date": "2024-10-20", "amount": 0.24}
+  ],
+  "pe_ratio": null,
+  "raw_xml": "..."
+}
+```
+
+**Example - ReportSnapshot (financial metrics):**
+```bash
+curl -X GET "http://localhost:8000/ibkr/fundamental?contract_id=265598&report_type=ReportSnapshot"
+```
+
+**Response:**
+```json
+{
+  "contract_id": 265598,
+  "symbol": "AAPL",
+  "sec_type": "STK",
+  "report_type": "ReportSnapshot",
+  "next_earnings_date": null,
+  "pe_ratio": 28.5,
+  "dividend_yield": 0.006,
+  "market_cap": 1750000000000.0,
+  "sector": "Technology",
+  "full_name": "Apple Inc.",
+  "raw_xml": "..."
+}
+```
+
 ### Contract Management
 
 #### `GET /ibkr/contract_details`
