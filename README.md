@@ -76,32 +76,37 @@ The same permission requirements apply: the file must be readable by the contain
 
 ### Installation
 
-1. **Clone and setup:**
+Install the package in your project's environment:
+
+```bash
+uv pip install -e /path/to/ibkr-mcp-server
+```
+
+This makes the `ibkr-mcp-server` command available in your environment.
+
+1. **Run the server:**
+
    ```bash
-   git clone <repository-url>
-   cd ibkr-mcp-server
+   ibkr-mcp-server --ib-gateway-tradingmode=paper
    ```
 
-2. **Install dependencies:**
-   ```bash
-   uv sync
-   ```
+   Or with full options:
 
-3. **Run the server:**
    ```bash
-   ./run.sh
-   ```
-
-   Or manually:
-   ```bash
-   uv run python main.py --ib-gateway-tradingmode=paper
+   ibkr-mcp-server \
+     --ib-gateway-tradingmode=paper \
+     --read-only-api=false \
+     --mcp-port=8002 \
+     --ib-gateway-image=ghcr.io/gnzsnz/tws-rdesktop:latest \
+     --env-file=/path/to/.env \
+     --ib-gateway-data-path=/path/to/ib-gateway-data
    ```
 
    Credentials are loaded from the `.env` file.
 
 The server will start on `http://localhost:8000` with API docs at `/docs`. MCP server will be available at `http://localhost:8000/mcp`.
 
-4. **Troubleshoot**
+2. **Troubleshoot**
 
 You can use http://localhost:6080/ for browser based VNC
 
@@ -1149,7 +1154,7 @@ cat logs/app.log
 Start the server:
 
 ```bash
-./run.sh
+ibkr-mcp-server
 ```
 
 Then test with curl commands:
