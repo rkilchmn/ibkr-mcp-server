@@ -74,7 +74,39 @@ The same permission requirements apply: the file must be readable by the contain
 - The container only sees the file at `/run/secrets/tws_password` (read-only bind mount). It cannot modify it.
 - If you previously used the `IB_GATEWAY_PASSWORD` env var directly, that still works but is less secure (visible in `docker inspect`).
 
-### Installation
+### Environment Variables and CLI Parameters
+
+### Priority Order
+
+The application resolves configuration in the following order (highest to lowest):
+
+1. **CLI arguments** (highest priority)
+2. **Exported env vars** (shell-exported variables)
+3. **`.env` file** (only fills in missing keys)
+4. **Hardcoded defaults** (lowest priority)
+
+**Key detail:** Exported env vars override `.env`. The `python-dotenv` library defaults to `override=False`, so shell-exported variables win when both exist.
+
+### Examples
+
+```bash
+# .env contains: IB_GATEWAY_VNC_PORT=5901
+
+# Exported env var overrides .env
+export IB_GATEWAY_VNC_PORT=5902
+uv run python main.py --ib-gateway-tradingmode=paper
+# Uses 5902
+
+# CLI argument overrides everything
+uv run python main.py --ib-gateway-vnc-port 5903
+# Uses 5903
+
+# No exported var, no CLI arg → falls back to .env value
+uv run python main.py --ib-gateway-tradingmode=paper
+# Uses 5901 (from .env)
+```
+
+## Installation
 
 Install the package in your project's environment:
 

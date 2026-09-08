@@ -69,6 +69,7 @@ class ConfigManager:
     ib_gateway_image: str = "ghcr.io/gnzsnz/ib-gateway:latest",
     password_file: str | None = None,
     tws_rdp_port: int = 3389,
+    ib_gateway_vnc_port: int = 5900,
     ib_gateway_tws_settings_path: str | None = None,
     ib_gateway_credentials_path: str | None = None,
     ib_gateway_data_path: str | None = None,
@@ -119,6 +120,7 @@ class ConfigManager:
     if password_file:
       config_kwargs["password_file"] = password_file
     config_kwargs["tws_rdp_port"] = tws_rdp_port
+    config_kwargs["ib_gateway_vnc_port"] = ib_gateway_vnc_port
     if ib_gateway_tws_settings_path:
       config_kwargs["ib_gateway_tws_settings_path"] = ib_gateway_tws_settings_path
     if ib_gateway_credentials_path:
@@ -150,7 +152,8 @@ def init_config(
     ib_gateway_image: str = "ghcr.io/gnzsnz/ib-gateway:latest",
     password_file: str | None = None,
     tws_rdp_port: int = 3389,
-ib_gateway_tws_settings_path: str | None = None,
+    ib_gateway_vnc_port: int = 5900,
+  ib_gateway_tws_settings_path: str | None = None,
     ib_gateway_credentials_path: str | None = None,
     ib_gateway_data_path: str | None = None,
     mcp_transport: str = "streamable-http",
@@ -193,6 +196,7 @@ mcp_transport: MCP transport type (streamable-http or sse)
         ib_gateway_image=ib_gateway_image,
         password_file=password_file,
         tws_rdp_port=tws_rdp_port,
+        ib_gateway_vnc_port=ib_gateway_vnc_port,
         ib_gateway_tws_settings_path=ib_gateway_tws_settings_path,
         ib_gateway_credentials_path=ib_gateway_credentials_path,
         ib_gateway_data_path=ib_gateway_data_path,

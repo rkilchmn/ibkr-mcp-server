@@ -36,8 +36,8 @@ def parse_args() -> argparse.Namespace:
     "--ib-gateway-tradingmode",
     type=str,
     choices=["paper", "live"],
-    default="paper",
-    help="IBKR Gateway trading mode - 'paper' or 'live' (default: paper)",
+    default=None,
+    help="IBKR Gateway trading mode - 'paper' or 'live' (default: paper, or IB_GATEWAY_TRADINGMODE env var)",
   )
   parser.add_argument(
     "--read-only-api",
@@ -62,6 +62,12 @@ def parse_args() -> argparse.Namespace:
     type=int,
     default=None,
     help="Host port for container-side RDP (default: 3389)",
+  )
+  parser.add_argument(
+    "--ib-gateway-vnc-port",
+    type=int,
+    default=None,
+    help="VNC port for IBKR Gateway native VNC viewer (default: 5900)",
   )
   parser.add_argument(
     "--ib-gateway-data-path",
@@ -151,7 +157,8 @@ def main() -> None:
     ib_gateway_password_file=password_file,
     log_level=args.log_level,
     mode=args.mode,
-    ib_gateway_tradingmode=args.ib_gateway_tradingmode,
+    ib_gateway_tradingmode=args.ib_gateway_tradingmode
+    or env.get("IB_GATEWAY_TRADINGMODE", "paper"),
     ib_gateway_readonly=args.read_only_api
     if args.read_only_api is not None
     else env.get("READ_ONLY_API", "true").lower() == "true",
@@ -165,6 +172,9 @@ def main() -> None:
     tws_rdp_port=args.tws_rdp_port
     if args.tws_rdp_port
     else int(env.get("TWS_RDP_PORT", "3389")),
+    ib_gateway_vnc_port=args.ib_gateway_vnc_port
+    if args.ib_gateway_vnc_port
+    else int(env.get("IB_GATEWAY_VNC_PORT", "5900")),
     ib_gateway_tws_settings_path=args.ib_gateway_tws_settings_path
     or env.get("IB_GATEWAY_TWS_SETTINGS_PATH"),
     mcp_transport=args.mcp_transport,
