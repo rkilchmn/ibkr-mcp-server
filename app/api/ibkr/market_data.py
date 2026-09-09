@@ -67,8 +67,8 @@ async def get_market_data(
          "volume": 724566,
          "open_interest": null,
          "greeks": null,
-         "timestamp": "2026-02-28T12:08:47.821499+00:00",
-         "last_trade_time": "2026-02-28T12:07:55+00:00",
+         "timestamp": "2026-02-28T07:08:47.821499-05:00",
+         "last_trade_time": "2026-02-28T07:07:55-05:00",
          "market_data_type": 3
       }
     ]

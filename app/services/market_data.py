@@ -107,24 +107,19 @@ class MarketDataClient(IBClient):
           fields[attr] = value
       return fields
 
-  def _process_tickers(self, tickers: list[dict]) -> list[MarketData]:
+  def _process_tickers(self, tickers: list[dict], timezone_mapping: dict[int, str] | None = None) -> list[MarketData]:
     """Process tickers to extract required fields."""
     result = util.df(tickers)
     result["contract_id"] = result["contract"].apply(lambda x: x.conId)
     result["symbol"] = result["contract"].apply(lambda x: x.localSymbol)
     result["sec_type"] = result["contract"].apply(lambda x: x.secType)
     result["greeks"] = result.apply(self._greek_extraction, axis=1)
-    result["timestamp"] = result["time"].apply(lambda x: x.isoformat() if pd.notna(x) else None)
+    result["timestamp"] = result.apply(
+      lambda row: self._convert_timestamp_to_timezone(row.get("time"), row.get("contract_id"), timezone_mapping),
+      axis=1,
+    )
     result["last_trade_time"] = result.apply(
-      lambda row: (
-        row["lastTimestamp"].isoformat()
-        if pd.notna(row.get("lastTimestamp"))
-        else (
-          row["delayedLastTimestamp"].isoformat()
-          if pd.notna(row.get("delayedLastTimestamp"))
-          else None
-        )
-      ),
+      lambda row: self._convert_to_contract_timezone(row, timezone_mapping),
       axis=1,
     )
     result["market_data_type"] = result["marketDataType"]
@@ -161,6 +156,64 @@ class MarketDataClient(IBClient):
       ticker_list.append(ticker_data)
 
     return ticker_list
+
+  def _convert_timestamp_to_timezone(self, timestamp, contract_id: int, timezone_mapping: dict[int, str] | None) -> str | None:
+    """Convert ticker time to contract's timezone."""
+    if not timezone_mapping:
+      if pd.notna(timestamp):
+        return timestamp.isoformat()
+      return None
+
+    timezone_str = timezone_mapping.get(contract_id)
+    if not timezone_str or pd.isna(timestamp):
+      if pd.notna(timestamp):
+        return timestamp.isoformat()
+      return None
+
+    try:
+      from zoneinfo import ZoneInfo
+      utc_time = timestamp.replace(tzinfo=ZoneInfo("UTC"))
+      return utc_time.astimezone(ZoneInfo(timezone_str)).isoformat()
+    except Exception:
+      if pd.notna(timestamp):
+        return timestamp.isoformat()
+      return None
+
+  def _convert_to_contract_timezone(self, row: pd.Series, timezone_mapping: dict[int, str] | None) -> str | None:
+    """Convert last_trade_time to contract's timezone if mapping provided."""
+    if not timezone_mapping:
+      # Fallback to original UTC timestamp when no mapping
+      if pd.notna(row.get("lastTimestamp")):
+        return row["lastTimestamp"].isoformat()
+      elif pd.notna(row.get("delayedLastTimestamp")):
+        return row["delayedLastTimestamp"].isoformat()
+      return None
+
+    contract_id = row.get("contract_id")
+    timezone_str = timezone_mapping.get(contract_id)
+
+    if not timezone_str:
+      if pd.notna(row.get("lastTimestamp")):
+        return row["lastTimestamp"].isoformat()
+      elif pd.notna(row.get("delayedLastTimestamp")):
+        return row["delayedLastTimestamp"].isoformat()
+      return None
+
+    try:
+      from zoneinfo import ZoneInfo
+      if pd.notna(row.get("lastTimestamp")):
+        utc_time = row["lastTimestamp"].replace(tzinfo=ZoneInfo("UTC"))
+        return utc_time.astimezone(ZoneInfo(timezone_str)).isoformat()
+      elif pd.notna(row.get("delayedLastTimestamp")):
+        utc_time = row["delayedLastTimestamp"].replace(tzinfo=ZoneInfo("UTC"))
+        return utc_time.astimezone(ZoneInfo(timezone_str)).isoformat()
+      return None
+    except Exception:
+      if pd.notna(row.get("lastTimestamp")):
+        return row["lastTimestamp"].isoformat()
+      elif pd.notna(row.get("delayedLastTimestamp")):
+        return row["delayedLastTimestamp"].isoformat()
+      return None
 
   def _greek_extraction(self, ticker: pd.Series) -> GreeksData | None:
     """Extract greeks from a ticker.
@@ -236,6 +289,24 @@ class MarketDataClient(IBClient):
       if qualified_contracts is None or len( qualified_contracts) == 0:
         raise Exception( "No qualified contracts found")
 
+      # Fetch contract timezones for converting timestamps to local time
+      timezone_mapping: dict[int, str] = {}
+      try:
+        for contract in qualified_contracts:
+          try:
+            contract_details = await asyncio.wait_for(
+              self.ib.reqContractDetailsAsync(contract),
+              timeout=self.config.ib_request_timeout,
+            )
+            if contract_details and contract_details[0]:
+              tz = contract_details[0].timeZoneId
+              if tz:
+                timezone_mapping[contract.conId] = tz
+          except Exception as tz_err:
+            logger.debug(f"Could not get timezone for {contract.localSymbol}: {tz_err}")
+      except Exception as e:
+        logger.debug(f"Error fetching contract timezones: {e}")
+
       # Determine market data type based on subscription type
       if subscription_type.lower() == "realtime":
         market_data_type = LIVE
@@ -305,7 +376,7 @@ class MarketDataClient(IBClient):
 
           # Process tickers
           if ready:
-            result = self._process_tickers(tickers)
+            result = self._process_tickers(tickers, timezone_mapping)
 
       finally:
           # Cancel all streaming subscriptions

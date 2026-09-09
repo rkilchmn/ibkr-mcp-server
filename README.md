@@ -574,12 +574,14 @@ curl -X GET "http://localhost:8000/ibkr/market_data?contract_ids=265598&contract
      "low_52_week": null,
      "open_interest": null,
      "greeks": null,
-     "timestamp": "2026-02-28T12:08:47.821499+00:00",
-     "last_trade_time": "2026-02-28T12:07:55+00:00",
+     "timestamp": "2026-02-28T07:08:47.821499-05:00",
+     "last_trade_time": "2026-02-28T07:07:55-05:00",
      "market_data_type": 3
   }
 ]
 ```
+
+**Note:** The `timestamp` and `last_trade_time` fields are automatically converted from IBKR's UTC timestamps to the contract's local timezone (e.g., `US/Eastern` for NYSE-listed stocks). If the contract timezone cannot be determined, the original UTC timestamp is returned as a fallback.
 
 ### Fundamental Data
 
@@ -1262,3 +1264,5 @@ These map to the `MarketData` response fields as follows:
 | `open_interest` | `openInterest` | 22 (OPEN_INTEREST) |
 
 **Note:** Generic ticks 100 and 101 are requested but not mapped in ib_async's `GENERIC_TICK_MAP`. The `volume` field uses `ticker.volume` (tick type 8) and `open_interest` uses `ticker.openInterest` (tick type 22). For options, these are the per-contract volume and open interest.
+
+**Timezone conversion:** Both `timestamp` and `last_trade_time` are converted from IBKR's UTC timestamps to the contract's local timezone (e.g., `US/Eastern` for NYSE-listed stocks). The contract timezone is fetched via `reqContractDetailsAsync` and stored in a `timezone_mapping` dictionary. If the timezone cannot be determined, the original UTC timestamp is returned as a fallback.
