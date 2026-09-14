@@ -150,7 +150,11 @@ class MarketDataClient(IBClient):
         ),
         greeks=row["greeks"],
         timestamp=row["timestamp"] or "",
-        last_trade_time=row.get("last_trade_time"),
+        last_trade_time=None
+        if row.get("last_trade_time") is None or (
+          isinstance(row.get("last_trade_time"), float) and pd.isna(row.get("last_trade_time"))
+        )
+        else row.get("last_trade_time"),
         market_data_type=row["market_data_type"],
       )
       ticker_list.append(ticker_data)
@@ -300,6 +304,7 @@ class MarketDataClient(IBClient):
             )
             if contract_details and contract_details[0]:
               tz = contract_details[0].timeZoneId
+              logger.debug(f"Contract {contract.localSymbol} timezone: {tz} (conId={contract.conId})")
               if tz:
                 timezone_mapping[contract.conId] = tz
           except Exception as tz_err:
