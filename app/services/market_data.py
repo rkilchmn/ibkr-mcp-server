@@ -8,7 +8,7 @@ from ib_async.contract import Contract
 
 from .client import IBClient
 from .contracts import ContractClient
-from app.api.ibkr.ib_constants import LIVE, FROZEN, DELAYED, DELAYED_FROZEN
+from app.api.ibkr.ib_constants import LIVE, DELAYED
 from app.core.setup_logging import logger
 from app.models import MarketData, GreeksData, BarData
 
@@ -150,7 +150,9 @@ class MarketDataClient(IBClient):
         ),
         greeks=row["greeks"],
         timestamp=row["timestamp"] or "",
-        last_trade_time=row.get("last_trade_time"),
+        last_trade_time=None
+        if pd.isna(row.get("last_trade_time"))
+        else row.get("last_trade_time"),
         market_data_type=row["market_data_type"],
       )
       ticker_list.append(ticker_data)
@@ -300,6 +302,7 @@ class MarketDataClient(IBClient):
             )
             if contract_details and contract_details[0]:
               tz = contract_details[0].timeZoneId
+              logger.debug(f"Contract {contract.localSymbol} timezone: {tz} (conId={contract.conId})")
               if tz:
                 timezone_mapping[contract.conId] = tz
           except Exception as tz_err:
@@ -545,6 +548,8 @@ class MarketDataClient(IBClient):
           ticker_kwargs["market_data_type"] = row["market_data_type"]
         if pd.notna(row.get("last_trade_time")):
           ticker_kwargs["last_trade_time"] = row["last_trade_time"]
+        else:
+          ticker_kwargs["last_trade_time"] = None
         ticker_data = MarketData(**ticker_kwargs)
         filtered_tickers.append(ticker_data)
 
