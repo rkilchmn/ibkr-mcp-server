@@ -62,17 +62,18 @@ class ContractClient(IBClient):
 
   async def get_contract_details(
       self,
-      symbol: str,
-      sec_type: str,
-      exchange: str,
-      primary_exchange: str | None = None,
-      currency: str | None = None,
+      contract_id: int | None = None,
+      symbol: str | None = None,
+      sec_type: str = "STK",
+      exchange: str = "SMART",
+      currency: str = "USD",
       options: dict | None = None,
     ) -> Dict[str, Any] | List[Dict[str, Any]]:
-    """Get contract details for a given symbol.
+    """Get contract details for a given contract ID or symbol.
 
     Args:
-      symbol: Symbol to get contract details for.
+      contract_id: Contract ID to get details for (optional if symbol is provided).
+      symbol: Symbol to get contract details for (optional if contract_id is provided).
       sec_type: Security type to get contract details for, supported types are:
         - STK: Stock
         - IND: Index
@@ -86,7 +87,6 @@ class ContractClient(IBClient):
         - ARCA: ARCA
         - BATS: BATS
         - NASDAQ: NASDAQ
-      primary_exchange: Primary exchange to get contract details for.
       currency: Currency to get contract details for.
       options: Dictionary of options to get contract details for.
         - strike: Strike price to get contract details for.
@@ -95,12 +95,22 @@ class ContractClient(IBClient):
         - trading_class: Trading class to get contract details for.
 
     Returns:
-        Dict of contract details if a single matching contract is found,
-        or list of contract candidates if multiple matches are found.
+      Dict of contract details if a single matching contract is found,
+      or list of contract candidates if multiple matches are found.
 
     """
     try:
       await self._connect()
+
+      if contract_id is not None:
+        contract = Contract(conId=contract_id)
+        contract_details = await asyncio.wait_for(
+          self.ib.reqContractDetailsAsync(contract),
+          timeout=self.config.ib_request_timeout,
+        )
+        if contract_details and contract_details[0]:
+          return obj_to_dict_snake_case(contract_details[0])
+        return {}
 
       contract_params = {
         "strike": 0,
@@ -121,7 +131,6 @@ class ContractClient(IBClient):
         conId=0,
         symbol=symbol,
         exchange=exchange or '',
-        primaryExchange=primary_exchange or '',
         currency=currency or '',
         secType=sec_type,
         **contract_params,
@@ -143,7 +152,6 @@ class ContractClient(IBClient):
             for c in contract_list
             if c is not None
             and (exchange is None or c.exchange == exchange)
-            and (primary_exchange is None or c.primaryExchange == primary_exchange)
             and (currency is None or c.currency == currency)
           ]
 
