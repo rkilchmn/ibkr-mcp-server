@@ -1,6 +1,7 @@
 """CLI entry point for the IBKR MCP Server."""
 
 import argparse
+import logging
 import os
 from pathlib import Path
 
@@ -183,10 +184,14 @@ def main() -> None:
   from app.main import app  # noqa: PLC0415
 
   app.state.port = config.application_port
-  uvicorn.run(
-    app,
-    host="127.0.0.1",
-    port=config.application_port,
-    log_level="critical",
-    access_log=False,
-  )
+  try:
+    uvicorn.run(
+      app,
+      host="127.0.0.1",
+      port=config.application_port,
+      log_level="critical",
+      access_log=False,
+    )
+  except Exception as e:
+    logging.error("Failed to start IBKR MCP Server on port {}: {}".format(config.application_port, e))
+    raise
