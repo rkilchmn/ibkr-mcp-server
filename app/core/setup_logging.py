@@ -54,7 +54,7 @@ def setup_logging() -> None:
   # Intercept standard logging
   logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
 
-  logging.getLogger("ib_async").setLevel(logging.WARNING)
+  logging.getLogger("ib_async").setLevel(logging.ERROR)
   logging.getLogger("uvicorn").setLevel(logging.CRITICAL)
   logging.getLogger("uvicorn.access").setLevel(logging.CRITICAL)
   logging.getLogger("uvicorn.error").setLevel(logging.CRITICAL)

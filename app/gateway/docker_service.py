@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import logging
 import os
 import time
 import asyncio
@@ -520,29 +521,32 @@ class IBKRGatewayDockerService:
 
   async def wait_for_container_ready(self) -> bool:
     """Wait for the IBKR Gateway container to be ready."""
-    startup_period = _get_startup_period()
     timer = 0
     check_interval = 5
 
-    while timer < startup_period:
-      await asyncio.sleep(check_interval)
-      timer += check_interval
-      logger.info(
-        f"Waiting for IBKR Gateway container to become ready "
-        f"({timer}/{startup_period}s elapsed)"
-      )
+    ib_async_logger = logging.getLogger("ib_async")
+    original_level = ib_async_logger.level
+    ib_async_logger.setLevel(logging.CRITICAL)
 
     while True:
-      if not await self.health_check():
-        if timer > self._gateway_timeout:
-          logger.error(
-            f"IBKR Gateway not ready after {self._gateway_timeout} seconds"
-          )
-          return False
-        await asyncio.sleep(check_interval)
-        timer += check_interval
-        continue
-      break
+      if timer >= self._gateway_timeout:
+        logger.error(
+          f"IBKR Gateway not ready after {self._gateway_timeout} seconds"
+        )
+        ib_async_logger.setLevel(original_level)
+        return False
+
+      await asyncio.sleep(check_interval)
+      timer += check_interval
+      if await self.health_check():
+        break
+
+      logger.info(
+        f"Waiting for IBKR Gateway container to become ready "
+        f"({timer}/{self._gateway_timeout}s elapsed)"
+      )
+
+    ib_async_logger.setLevel(original_level)
 
     logger.debug(f"IBKR Gateway container is ready after {timer} seconds")
 
