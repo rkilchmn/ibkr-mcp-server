@@ -29,7 +29,8 @@ def pytest_configure(config):
 @pytest.fixture(scope="session")
 def base_url():
     """Base URL for the API."""
-    return "http://localhost:8000"
+    import os
+    return os.environ.get("BASE_URL", "http://localhost:8000")
 
 
 @pytest.fixture(scope="session")

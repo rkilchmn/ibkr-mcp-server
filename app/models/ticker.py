@@ -34,4 +34,3 @@ class MarketData(BaseModel):
   timestamp: str | None = Field(default=None, description="Timestamp")
   last_trade_time: str | None = Field(default=None, description="Last trade time")
   market_data_type: int | None = Field(None, description="Market data type")
-  friendly_symbol: str | None = Field(default=None, description="Human-readable option symbol (e.g., SLV Sep20'24 42.5 PUT)")

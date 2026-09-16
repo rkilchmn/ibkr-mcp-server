@@ -21,54 +21,15 @@ class ContractClient(IBClient):
 
   """
 
-  @staticmethod
-  def _format_friendly_option_symbol(row: dict) -> str | None:
-    """Format a friendly symbol string for option contracts.
-
-    Formats options like: SYMBOL MmmDD'YY STRIKE PUT/CALL
-    Example: NEM Dec20'24 42.5 PUT
-
-    Args:
-      row: Dictionary containing contract data with keys:
-        - sec_type: Security type (e.g., 'OPT')
-        - right: Option right ('C', 'P', 'CALL', 'PUT')
-        - symbol: Underlying symbol
-        - last_trade_date_or_contract_month: Expiry date in YYYYMMDD format
-        - strike: Strike price
-
-    Returns:
-      Formatted friendly symbol string or None if not an option.
-    """
-    if row.get('sec_type') == 'OPT' or row.get('right') in ['C', 'P', 'CALL', 'PUT']:
-      symbol = row.get('symbol', '')
-      last_trade_date = row.get('last_trade_date_or_contract_month', '')
-      strike = row.get('strike', '')
-      right = row.get('right', '')
-
-      # Format expiry: YYYYMMDD -> MmmDD'YY
-      if last_trade_date and len(str(last_trade_date)) >= 8:
-        date_str = str(last_trade_date)[:8]
-        from datetime import datetime
-        dt = datetime.strptime(date_str, '%Y%m%d')
-        expiry_formatted = dt.strftime("%b%d'%y").replace(' 0', ' ')
-      else:
-        expiry_formatted = last_trade_date
-
-      # Format right
-      right_formatted = 'CALL' if right in ['C', 'CALL'] else 'PUT' if right in ['P', 'PUT'] else right
-
-      return f"{symbol} {expiry_formatted} {strike} {right_formatted}"
-    return None
-
   async def get_contract_details(
-      self,
-      contract_id: int | None = None,
-      symbol: str | None = None,
-      sec_type: str = "STK",
-      exchange: str = "SMART",
-      currency: str = "USD",
-      options: dict | None = None,
-    ) -> Dict[str, Any] | List[Dict[str, Any]]:
+    self,
+    contract_id: int | None = None,
+    symbol: str | None = None,
+    sec_type: str = "STK",
+    exchange: str = "SMART",
+    currency: str = "USD",
+    options: dict | None = None,
+  ) -> Dict[str, Any] | List[Dict[str, Any]]:
     """Get contract details for a given contract ID or symbol.
 
     Args:
@@ -294,17 +255,6 @@ class ContractClient(IBClient):
 
             if contracts_df.empty:
               raise Exception("No contracts found for the given filters.")
-            contracts_df['friendly_symbol'] = contracts_df.apply(self._format_friendly_option_symbol, axis=1)
-
-            # Reorder columns to place friendly_symbol after local_symbol
-            if 'local_symbol' in contracts_df.columns and 'friendly_symbol' in contracts_df.columns:
-              cols = list(contracts_df.columns)
-              local_symbol_idx = cols.index('local_symbol')
-              # Remove friendly_symbol from its current position and insert after local_symbol
-              cols.remove('friendly_symbol')
-              cols.insert(local_symbol_idx + 1, 'friendly_symbol')
-              contracts_df = contracts_df[cols]
-
             return contracts_df.to_dict(orient="records")
           except Exception as e:
             logger.warning("Error qualifying contracts: {}", str(e))
