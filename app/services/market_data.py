@@ -123,6 +123,10 @@ class MarketDataClient(IBClient):
       axis=1,
     )
     result["market_data_type"] = result["marketDataType"]
+    result["friendly_symbol"] = result.apply(
+      lambda row: self._format_friendly_option_symbol(row.get("sec_type"), row.get("last_trade_date_or_contract_month"), row.get("strike"), row.get("right"), row.get("symbol")),
+      axis=1,
+    )
 
     # Convert DataFrame to list of Pydantic models
     ticker_list = []
@@ -154,10 +158,36 @@ class MarketDataClient(IBClient):
         if pd.isna(row.get("last_trade_time"))
         else row.get("last_trade_time"),
         market_data_type=row["market_data_type"],
+        friendly_symbol=row.get("friendly_symbol"),
       )
       ticker_list.append(ticker_data)
 
     return ticker_list
+
+  @staticmethod
+  def _format_friendly_option_symbol(
+    sec_type: str | None,
+    last_trade_date_or_contract_month: str | None,
+    strike: float | None,
+    right: str | None,
+    symbol: str | None,
+  ) -> str | None:
+    """Format a friendly symbol for option contracts."""
+    if sec_type != "OPT" or not right or not strike:
+      return None
+
+    symbol = symbol or ""
+    last_trade_date = last_trade_date_or_contract_month or ""
+    right_formatted = "CALL" if right in ["C", "CALL"] else "PUT" if right in ["P", "PUT"] else right
+
+    if last_trade_date and len(str(last_trade_date)) >= 8:
+      from datetime import datetime
+      dt = datetime.strptime(str(last_trade_date)[:8], "%Y%m%d")
+      expiry_formatted = dt.strftime("%b%d'%y").replace(" 0", " ")
+    else:
+      expiry_formatted = last_trade_date
+
+    return f"{symbol} {expiry_formatted} {strike} {right_formatted}"
 
   def _convert_timestamp_to_timezone(self, timestamp, contract_id: int, timezone_mapping: dict[int, str] | None) -> str | None:
     """Convert ticker time to contract's timezone."""
