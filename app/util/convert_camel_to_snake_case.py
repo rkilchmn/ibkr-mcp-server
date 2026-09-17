@@ -47,6 +47,21 @@ def convert_df_columns_to_snake_case(df: pd.DataFrame) -> pd.DataFrame:
   return df
 
 
+def _convert_value(value: Any) -> Any:
+  """Convert a value to snake_case keys recursively."""
+  if isinstance(value, dict):
+    return {camel_to_snake(k): _convert_value(v) for k, v in value.items()}
+  if isinstance(value, (list, tuple, set)):
+    return [_convert_value(v) for v in value]
+  if hasattr(value, "__dict__"):
+    return {
+      camel_to_snake(k): _convert_value(v)
+      for k, v in value.__dict__.items()
+      if not k.startswith("_")
+    }
+  return value
+
+
 def obj_to_dict_snake_case(obj: Any) -> dict[str, Any]:
   """Convert an object to a dictionary with snake_case keys.
 
@@ -55,10 +70,11 @@ def obj_to_dict_snake_case(obj: Any) -> dict[str, Any]:
 
   Returns:
     Dictionary with snake_case keys from the object's public attributes.
+    Nested objects, dicts, and lists are converted recursively.
 
   """
   return {
-    camel_to_snake(k): v
+    camel_to_snake(k): _convert_value(v)
     for k, v in obj.__dict__.items()
     if not k.startswith("_")
   }
