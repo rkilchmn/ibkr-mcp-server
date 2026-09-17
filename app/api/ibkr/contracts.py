@@ -23,7 +23,7 @@ def _parse_json_or_python_dict(value: str | None) -> dict:
 @ibkr_router.get("/contract_details", operation_id="get_contract_details")
 async def get_contract_details(
   contract_id: int | None = Query(default=None, description="Contract ID to get details for (optional if symbol is provided)"),
-  symbol: str = Query(default=None, description="Symbol to get contract details for (optional if contract_id is provided)"),
+  symbol: str | None = Query(default=None, description="Symbol to get contract details for (optional if contract_id is provided)"),
   sec_type: str = Query(default="STK", description="Security type (used with symbol)"),
   exchange: str = Query(default="SMART", description="Exchange (used with symbol)"),
   currency: str = Query(default="USD", description="Currency (used with symbol)"),
