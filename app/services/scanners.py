@@ -103,12 +103,11 @@ class ScannerClient(IBClient):
         locationCode=scanner_request.location_code,
         scanCode=scanner_request.scan_code,
       )
-      active_sub = self.ib.reqScannerSubscription(sub_object, [], cleaned_tags)
+      # reqScannerDataAsync creates its own subscription and cancels it on completion.
       scanner_data = await asyncio.wait_for(
           self.ib.reqScannerDataAsync(sub_object, [], cleaned_tags),
           timeout=self.config.ib_request_timeout,
-        )
-      self.ib.cancelScannerSubscription(active_sub)
+      )
 
       symbols = [row.contractDetails.contract.symbol for row in scanner_data]
     except Exception as e:

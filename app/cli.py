@@ -74,7 +74,7 @@ def parse_args() -> argparse.Namespace:
     "--ib-gateway-data-path",
     type=str,
     default=None,
-    help="Base directory for config/ and .docker/ (default: ib-gateway-data in current dir, or IB_GATEWAY_DATA_PATH env var)",
+    help="Base directory for config/, tws_settings/, and .docker/ (default: ib-gateway-data in current dir, or IB_GATEWAY_DATA_PATH env var). The .docker/ subdirectory is shared across users; TWS settings are stored in <data_path>/<username>/config or <data_path>/<username>/tws_settings.",
   )
   parser.add_argument(
     "--ib-gateway-tws-settings-path",

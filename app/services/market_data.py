@@ -316,7 +316,7 @@ class MarketDataClient(IBClient):
       else:
         market_data_type = DELAYED
       self.ib.reqMarketDataType(market_data_type)
-      
+
       # Request streaming data for all qualified contracts
       # Generic ticks: 221=mark price, 165=52-week high/low, 106=opt implied vol, 104=hist vol, 100=opt volume, 101=opt open interest
       # Note: ticks 100/101 not in ib_async GENERIC_TICK_MAP; volume/openInterest come from tick types 8/22

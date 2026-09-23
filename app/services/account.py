@@ -8,6 +8,11 @@ from app.models import AccountSummary, AccountValue, Position
 class AccountClient(IBClient):
   """Account management operations."""
 
+  def __init__(self) -> None:
+    """Initialize the AccountClient."""
+    super().__init__()
+    self._account_lock = asyncio.Lock()
+
   async def get_account_summary(self, tags: str = "All") -> list[AccountSummary]:
     """Get account summary information.
     
@@ -17,43 +22,39 @@ class AccountClient(IBClient):
     Returns:
       List of account summary items
     """
-    await self._connect()
-    
-    try:
-      summary_items = self.ib.accountSummary()
+    async with self._account_lock:
+      await self._connect()
       
-      if not summary_items:
-        self.ib.reqAccountUpdates(True)
-        await asyncio.sleep(2)
-        summary_items = self.ib.accountSummary()
-        self.ib.reqAccountUpdates(False)
-      
-      return [
-        AccountSummary(
-          account=item.account,
-          tag=item.tag,
-          value=item.value,
-          currency=item.currency
-        )
-        for item in summary_items
-      ]
-    except Exception as e:
-      logger.error(f"Failed to get account summary: {e}")
-      # Fallback to account values
       try:
-        account_values = self.ib.accountValues()
-        result = []
-        for item in account_values[:10]:
-          result.append(AccountSummary(
+        # Always unsubscribe from any existing subscription first
+        self.ib.reqAccountUpdates(False)
+        await asyncio.sleep(0.1)
+        
+        summary_items = self.ib.accountSummary()
+        
+        if not summary_items:
+          self.ib.reqAccountUpdates(True)
+          await asyncio.sleep(2)
+          summary_items = self.ib.accountSummary()
+      
+        return [
+          AccountSummary(
             account=item.account,
             tag=item.tag,
             value=item.value,
             currency=item.currency
-          ))
-        return result
-      except Exception as fallback_error:
-        logger.error(f"Fallback also failed: {fallback_error}")
-        raise Exception(f"Account summary error: {e}")
+          )
+          for item in summary_items
+        ]
+      except Exception as e:
+        logger.error(f"Failed to get account summary: {e}")
+        raise
+      finally:
+        # Always unsubscribe to prevent hitting rate limits
+        try:
+          self.ib.reqAccountUpdates(False)
+        except Exception:
+          pass
 
   async def get_account_values(self) -> list[AccountValue]:
     """Get account values.

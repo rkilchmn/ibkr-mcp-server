@@ -104,32 +104,195 @@ if password_file_host_path:
       f"The container may fail to start without credentials.",
     )
 
-docker_config = {
-  "image": config.ib_gateway_image,
-  "ports": None
-  if USE_HOST_NETWORK
-  else {
-    f"{VNC_PORT_DOCKER}/tcp": [
-      {"HostIp": "127.0.0.1", "HostPort": str(ib_gateway_vnc_port)},
-    ],
-    f"{RDP_PORT_DOCKER}/tcp": [
-      {"HostIp": "127.0.0.1", "HostPort": str(tws_rdp_port)},
-    ],
-    f"{CONTAINER_LIVE_API_PORT}/tcp": [
-      {"HostIp": "127.0.0.1", "HostPort": str(HOST_LIVE_API_PORT)},
-    ],
-    f"{CONTAINER_PAPER_API_PORT}/tcp": [
-      {"HostIp": "127.0.0.1", "HostPort": str(HOST_PAPER_API_PORT)},
-    ],
-  },
-  "environment": {
-    "TWS_USERID": config.ib_gateway_username,
-    "TRADING_MODE": config.ib_gateway_tradingmode,
-    "READ_ONLY_API": "yes" if config.ib_gateway_readonly else "no",
-    "AUTO_RESTART_TIME": os.getenv("IB_GATEWAY_AUTO_RESTART_TIME", ""),
-  },
-  "volumes": {},
-}
+def build_docker_config(cfg, username: str | None = None) -> dict[str, Any]:
+  """Build docker configuration with optional username override."""
+  ib_gateway_vnc_port = cfg.ib_gateway_vnc_port
+  tws_rdp_port = cfg.tws_rdp_port
+  _is_tws_image = "tws-rdesktop" in cfg.ib_gateway_image
+  if _is_tws_image:
+    CONTAINER_LIVE_API_PORT = 7498
+    CONTAINER_PAPER_API_PORT = 7499
+  else:
+    CONTAINER_LIVE_API_PORT = 4003
+    CONTAINER_PAPER_API_PORT = 4004
+  HOST_LIVE_API_PORT = 4001
+  HOST_PAPER_API_PORT = 4002
+
+  if cfg.ib_gateway_tradingmode == "live":
+    API_PORT = HOST_LIVE_API_PORT
+  else:
+    API_PORT = HOST_PAPER_API_PORT
+
+  CONTAINER_SECRETS_PATH = "/run/secrets"
+
+  effective_username = username or cfg.ib_gateway_username
+
+  docker_config: dict[str, Any] = {
+    "image": cfg.ib_gateway_image,
+    "ports": None
+    if USE_HOST_NETWORK
+    else {
+      f"{VNC_PORT_DOCKER}/tcp": [
+        {"HostIp": "127.0.0.1", "HostPort": str(ib_gateway_vnc_port)},
+      ],
+      f"{RDP_PORT_DOCKER}/tcp": [
+        {"HostIp": "127.0.0.1", "HostPort": str(tws_rdp_port)},
+      ],
+      f"{CONTAINER_LIVE_API_PORT}/tcp": [
+        {"HostIp": "127.0.0.1", "HostPort": str(HOST_LIVE_API_PORT)},
+      ],
+      f"{CONTAINER_PAPER_API_PORT}/tcp": [
+        {"HostIp": "127.0.0.1", "HostPort": str(HOST_PAPER_API_PORT)},
+      ],
+    },
+    "environment": {
+      "TWS_USERID": effective_username,
+      "TRADING_MODE": cfg.ib_gateway_tradingmode,
+      "READ_ONLY_API": "yes" if cfg.ib_gateway_readonly else "no",
+      "AUTO_RESTART_TIME": os.getenv("IB_GATEWAY_AUTO_RESTART_TIME", ""),
+    },
+    "volumes": {},
+  }
+
+  for _env_var in _PASSTHROUGH_ENV_VARS:
+    _host_value = os.getenv(_env_var)
+    if _host_value is not None:
+      docker_config["environment"][_env_var] = _host_value
+
+  _tws_settings_host_path = cfg.ib_gateway_tws_settings_path
+  if _tws_settings_host_path:
+    _tws_settings_host_path = str(Path(_tws_settings_host_path).expanduser())
+
+  if _is_tws_image:
+    _default_tws_settings_container_path = "/config"
+    _default_tws_settings_host_path = (Path(cfg.ib_gateway_data_path) / effective_username / "config").resolve()
+  else:
+    _default_tws_settings_container_path = "/home/ibkr/tws_settings"
+    _default_tws_settings_host_path = (Path(cfg.ib_gateway_data_path) / effective_username / "tws_settings").resolve()
+
+  _tws_settings_container_path = _default_tws_settings_container_path
+  if not _tws_settings_host_path:
+    _tws_settings_host_path = _default_tws_settings_host_path
+
+  # Ensure the per-user TWS settings directory exists
+  Path(_tws_settings_host_path).mkdir(parents=True, exist_ok=True)
+
+  docker_config["environment"]["TWS_SETTINGS_PATH"] = _tws_settings_container_path
+  docker_config["volumes"][_tws_settings_host_path] = {
+    "bind": _tws_settings_container_path,
+    "mode": "rw",
+  }
+  logger.debug(
+    f"Bind-mounted {_tws_settings_host_path} -> "
+    f"{_tws_settings_container_path} for TWS settings persistence"
+  )
+
+  if cfg.ib_gateway_vnc_password_file:
+    vnc_password_file_host_path = str(
+      Path(cfg.ib_gateway_vnc_password_file).expanduser(),
+    )
+  elif cfg.ib_gateway_vnc_password:
+    vnc_password_file_host_path = None
+  else:
+    vnc_password_file_host_path = str(
+      Path(cfg.ib_gateway_credentials_path, "vnc_password").expanduser(),
+    )
+
+  if vnc_password_file_host_path:
+    docker_config["environment"]["VNC_SERVER_PASSWORD_FILE"] = (
+      f"{CONTAINER_SECRETS_PATH}/vnc_password"
+    )
+    _vnc_secret_src = Path(vnc_password_file_host_path)
+    if not _vnc_secret_src.exists():
+      logger.warning(
+        f"VNC password file {_vnc_secret_src} does not exist. "
+        "The container may fail to start without it.",
+      )
+    else:
+      docker_config["volumes"][str(_vnc_secret_src)] = {
+        "bind": f"{CONTAINER_SECRETS_PATH}/vnc_password",
+        "mode": "ro",
+      }
+      logger.debug(
+        f"Bind-mounted {vnc_password_file_host_path} -> "
+        f"{CONTAINER_SECRETS_PATH}/vnc_password",
+      )
+  elif cfg.ib_gateway_vnc_password:
+    docker_config["environment"]["VNC_SERVER_PASSWORD"] = cfg.ib_gateway_vnc_password
+
+  password_file_host_path: str | None = None
+  if cfg.ib_gateway_password_file:
+    password_file_host_path = str(Path(cfg.ib_gateway_password_file).expanduser())
+  elif cfg.ib_gateway_password:
+    password_file_host_path = None
+  else:
+    password_file_host_path = str(
+      Path(cfg.ib_gateway_credentials_path, effective_username).expanduser(),
+    )
+
+  if password_file_host_path:
+    path_obj = Path(password_file_host_path)
+    if not path_obj.exists():
+      logger.warning(
+        f"Password file {password_file_host_path} does not exist. "
+        f"The container may fail to start without credentials.",
+      )
+
+    docker_config["environment"]["TWS_PASSWORD_FILE"] = (
+      f"{CONTAINER_SECRETS_PATH}/tws_password"
+    )
+    _secret_src = Path(password_file_host_path)
+    if not _secret_src.exists():
+      logger.warning(
+        f"Password file {password_file_host_path} does not exist. "
+        "The container may fail to start without credentials.",
+      )
+    else:
+      docker_config["volumes"][str(_secret_src)] = {
+        "bind": f"{CONTAINER_SECRETS_PATH}/tws_password",
+        "mode": "ro",
+      }
+      logger.debug(
+        f"Bind-mounted {password_file_host_path} -> "
+        f"{CONTAINER_SECRETS_PATH}/tws_password",
+      )
+  elif cfg.ib_gateway_password:
+    docker_config["environment"]["TWS_PASSWORD"] = cfg.ib_gateway_password
+
+  if cfg.password_file:
+    abc_password_file_host_path = str(
+      Path(cfg.password_file).expanduser(),
+    )
+  else:
+    abc_password_file_host_path = str(
+      Path(cfg.ib_gateway_credentials_path, "abc_password").expanduser(),
+    )
+
+  if abc_password_file_host_path:
+    docker_config["environment"]["PASSWD_FILE"] = f"{CONTAINER_SECRETS_PATH}/abc_password"
+    _abc_secret_src = Path(abc_password_file_host_path)
+    if not _abc_secret_src.exists():
+      logger.warning(
+        f"abc_password file {_abc_secret_src} does not exist. "
+        "The container may fail to start without it.",
+      )
+    else:
+      docker_config["volumes"][str(_abc_secret_src)] = {
+        "bind": f"{CONTAINER_SECRETS_PATH}/abc_password",
+        "mode": "ro",
+      }
+      logger.debug(
+        f"Bind-mounted {abc_password_file_host_path} -> "
+        f"{CONTAINER_SECRETS_PATH}/abc_password",
+      )
+
+  _secret_mappings = []
+  for _host_path, _vol_config in docker_config["volumes"].items():
+    _secret_mappings.append(f"{_host_path} -> {_vol_config['bind']}")
+  if _secret_mappings:
+    logger.info(f"Secret files mapped: {', '.join(_secret_mappings)}")
+
+  return docker_config
 
 # Pass through image-defined env vars from the host environment only if
 # they are explicitly set. If not set, the container applies its own
@@ -174,147 +337,11 @@ _PASSTHROUGH_ENV_VARS = [
   "TWS_PASSWORD_PAPER_FILE",
 ]
 
-for _env_var in _PASSTHROUGH_ENV_VARS:
-  _host_value = os.getenv(_env_var)
-  if _host_value is not None:
-    docker_config["environment"][_env_var] = _host_value
-
-# Configure TWS settings persistence volume.
-# Defaults per image:
-#   ib-gateway: host ./tws_settings -> container /home/ibgateway/tws_settings
-#   tws-rdesktop: host ./config -> container /config
-_tws_settings_host_path = config.ib_gateway_tws_settings_path
-if _tws_settings_host_path:
-  _tws_settings_host_path = str(Path(_tws_settings_host_path).expanduser())
-
-if _is_tws_image:
-  _default_tws_settings_container_path = "/config"
-  _default_tws_settings_host_path = (Path(config.ib_gateway_data_path) / "config").resolve()
-else:
-  _default_tws_settings_container_path = "/home/ibkr/tws_settings"
-  _default_tws_settings_host_path = (Path(config.ib_gateway_data_path) / "tws_settings").resolve()
-
-_tws_settings_container_path = _default_tws_settings_container_path
-if not _tws_settings_host_path:
-  _tws_settings_host_path = _default_tws_settings_host_path
-
-docker_config["environment"]["TWS_SETTINGS_PATH"] = _tws_settings_container_path
-docker_config["volumes"][_tws_settings_host_path] = {
-  "bind": _tws_settings_container_path,
-  "mode": "rw",
-}
-logger.debug(
-  f"Bind-mounted {_tws_settings_host_path} -> "
-  f"{_tws_settings_container_path} for TWS settings persistence"
-)
-
-if config.ib_gateway_vnc_password_file:
-  vnc_password_file_host_path = str(
-    Path(config.ib_gateway_vnc_password_file).expanduser(),
-  )
-elif config.ib_gateway_vnc_password:
-  vnc_password_file_host_path = None
-else:
-  vnc_password_file_host_path = str(
-    Path(config.ib_gateway_credentials_path, "vnc_password").expanduser(),
-  )
-
-# Configure VNC password: pass the file path through to Docker via a
-# read-only bind mount into /run/secrets/vnc_password and set
-# VNC_SERVER_PASSWORD_FILE so the container knows where to find it.
-if vnc_password_file_host_path:
-  docker_config["environment"]["VNC_SERVER_PASSWORD_FILE"] = (
-    f"{CONTAINER_SECRETS_PATH}/vnc_password"
-  )
-  _vnc_secret_src = Path(vnc_password_file_host_path)
-  if not _vnc_secret_src.exists():
-    logger.warning(
-      f"VNC password file {_vnc_secret_src} does not exist. "
-      "The container may fail to start without it.",
-    )
-  else:
-    docker_config["volumes"][str(_vnc_secret_src)] = {
-      "bind": f"{CONTAINER_SECRETS_PATH}/vnc_password",
-      "mode": "ro",
-    }
-    logger.debug(
-      f"Bind-mounted {vnc_password_file_host_path} -> "
-      f"{CONTAINER_SECRETS_PATH}/vnc_password",
-    )
-elif config.ib_gateway_vnc_password:
-  docker_config["environment"]["VNC_SERVER_PASSWORD"] = config.ib_gateway_vnc_password
-
-# Configure credentials: pass the password file path through to Docker
-# via a read-only bind mount into /run/secrets/tws_password. The MCP
-# process does not need to read the file — only Docker and the
-# container's IBC do.
-if password_file_host_path:
-  docker_config["environment"]["TWS_PASSWORD_FILE"] = (
-    f"{CONTAINER_SECRETS_PATH}/tws_password"
-  )
-  _secret_src = Path(password_file_host_path)
-  if not _secret_src.exists():
-    logger.warning(
-      f"Password file {password_file_host_path} does not exist. "
-      "The container may fail to start without credentials.",
-    )
-  else:
-    # The MCP process doesn't need to read the file — only Docker does,
-    # for the bind mount. The container's IBC reads it at runtime.
-    docker_config["volumes"][str(_secret_src)] = {
-      "bind": f"{CONTAINER_SECRETS_PATH}/tws_password",
-      "mode": "ro",
-    }
-    logger.debug(
-      f"Bind-mounted {password_file_host_path} -> "
-      f"{CONTAINER_SECRETS_PATH}/tws_password",
-    )
-elif config.ib_gateway_password:
-  docker_config["environment"]["TWS_PASSWORD"] = config.ib_gateway_password
-
-# Determine the abc password file host path
-if config.password_file:
-  abc_password_file_host_path = str(
-    Path(config.password_file).expanduser(),
-  )
-else:
-  abc_password_file_host_path = str(
-    Path(config.ib_gateway_credentials_path, "abc_password").expanduser(),
-  )
-
-# Configure abc password: pass the file path through to Docker via a
-# read-only bind mount into /run/secrets/abc_password and set PASSWD_FILE
-# so the container knows where to find it.
-if abc_password_file_host_path:
-  docker_config["environment"]["PASSWD_FILE"] = f"{CONTAINER_SECRETS_PATH}/abc_password"
-  _abc_secret_src = Path(abc_password_file_host_path)
-  if not _abc_secret_src.exists():
-    logger.warning(
-      f"abc_password file {_abc_secret_src} does not exist. "
-      "The container may fail to start without it.",
-    )
-  else:
-    docker_config["volumes"][str(_abc_secret_src)] = {
-      "bind": f"{CONTAINER_SECRETS_PATH}/abc_password",
-      "mode": "ro",
-    }
-    logger.debug(
-      f"Bind-mounted {abc_password_file_host_path} -> "
-      f"{CONTAINER_SECRETS_PATH}/abc_password",
-    )
-
-# Log summary of all secret file bind mounts
-_secret_mappings = []
-for _host_path, _vol_config in docker_config["volumes"].items():
-  _secret_mappings.append(f"{_host_path} -> {_vol_config['bind']}")
-if _secret_mappings:
-  logger.info(f"Secret files mapped: {', '.join(_secret_mappings)}")
-
 
 class IBKRGatewayDockerService:
   """Service for managing IBKR Gateway Docker container."""
 
-  def __init__(self) -> None:
+  def __init__(self, username: str | None = None) -> None:
     """Initialize the IBKR Gateway Docker service."""
     self.client = docker.from_env()
     self.container_name = "ibkr-gateway"
@@ -328,10 +355,16 @@ class IBKRGatewayDockerService:
     self._compose_dir = self._data_dir / ".docker"
     self._compose_file = self._compose_dir / "docker-compose.yml"
     self._compose_last_success = self._compose_dir / "docker-compose.last-success.yml"
+    self._username = username
 
   def _get_compose_paths(self) -> tuple[Path, Path]:
     """Return the current and last-success compose file paths."""
     return self._compose_file, self._compose_last_success
+
+  def _get_docker_config(self, username: str | None = None) -> dict[str, Any]:
+    """Get docker config with optional username override."""
+    effective_username = username or self._username
+    return build_docker_config(config, effective_username)
 
   def _generate_compose(self, docker_config: dict[str, Any]) -> dict[str, Any]:
     """Generate a docker-compose dict from the current docker_config."""
@@ -390,10 +423,11 @@ class IBKRGatewayDockerService:
       elif "status" in chunk:
         logger.info(f"  {chunk['status']}")
 
-  async def start_gateway(self) -> bool:
+  async def start_gateway(self, username: str | None = None) -> bool:
     """Start the IBKR Gateway container."""
     try:
       current_compose, last_success = self._get_compose_paths()
+      docker_config = self._get_docker_config(username)
       new_compose = self._generate_compose(docker_config)
       new_content = yaml.safe_dump(new_compose, sort_keys=False)
       new_hash = hashlib.sha256(new_content.encode()).hexdigest()

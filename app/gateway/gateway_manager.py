@@ -2,7 +2,7 @@
 from typing import Any
 from .docker_service import IBKRGatewayDockerService
 from app.core.setup_logging import logger
-from app.core.config import get_config
+from app.core.config import get_config, ConfigManager
 
 config = get_config()
 
@@ -14,10 +14,10 @@ class IBKRGatewayManager:
     self.docker_service = IBKRGatewayDockerService()
     self.is_running = False
 
-  async def start_gateway(self) -> bool:
+  async def start_gateway(self, username: str | None = None) -> bool:
     """Start the IBKR Gateway container."""
     try:
-      success = await self.docker_service.start_gateway()
+      success = await self.docker_service.start_gateway(username)
       if success:
         self.is_running = True
         logger.debug("IBKR Gateway started successfully")
@@ -26,6 +26,23 @@ class IBKRGatewayManager:
       return False
     else:
       return success
+
+  async def restart_gateway_with_user(self, username: str) -> bool:
+    """Restart gateway with a different username."""
+    try:
+      # Update config with new username
+      ConfigManager.update_username(username)
+      # Stop current gateway
+      await self.stop_gateway()
+      # Start with new username
+      success = await self.docker_service.start_gateway(username)
+      if success:
+        self.is_running = True
+        logger.debug(f"IBKR Gateway restarted with username: {username}")
+      return success
+    except Exception:
+      logger.exception(f"Failed to restart gateway with username: {username}")
+      return False
 
   async def stop_gateway(self) -> bool:
     """Stop the IBKR Gateway container."""
@@ -55,6 +72,8 @@ class IBKRGatewayManager:
     else:
       return {
         "is_running": self.is_running,
+        "username": config.ib_gateway_username,
+        "image": config.ib_gateway_image,
         "container": container_status,
       }
 

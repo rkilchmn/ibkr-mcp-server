@@ -1,6 +1,6 @@
 """Gateway endpoints."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
 from pydantic import BaseModel
 
 from app.core.setup_logging import logger
@@ -14,6 +14,14 @@ gateway_manager = IBKRGatewayManager()
 
 class IBKRConnectionRequest(BaseModel):
   """Request body for connecting to IBKR."""
+  username: str | None = None
+
+
+class GatewayConnectResponse(BaseModel):
+  """Response for gateway connect."""
+  success: bool
+  message: str
+  username: str | None = None
 
 @router.get("/status", operation_id="get_ibkr_gateway_status")
 async def get_gateway_status() -> dict:
@@ -26,6 +34,8 @@ async def get_gateway_status() -> dict:
     >>> get_gateway_status()
   {
     "is_running": true,
+    "username": "d3f93tn6z",
+    "image": "ghcr.io/gnzsnz/tws-rdesktop:latest",
     "container": {
       "status": "running",
       "health": "healthy",
@@ -64,7 +74,7 @@ async def get_gateway_logs(tail: int = 100) -> dict:
         "remove Client 1111",
         "2025/06/30 01:03:22 socat[1281] N socket 1 (fd 6) is at EOF",
         "2025/06/30 01:03:22 socat[1281] N socket 2 (fd 5) is at EOF",
-        "2025/06/30 01:03:22 socat[1281] N exiting with status 0",
+        "2025/06/30 01:03:22 socat[11] N exiting with status 0",
         "2025/06/30 01:03:22 socat[11] N childdied(): handling signal 17"
       ]
     }
@@ -78,3 +88,48 @@ async def get_gateway_logs(tail: int = 100) -> dict:
       status_code=500,
       detail="Failed to get gateway logs.",
     ) from err
+
+
+@router.post("/connect", operation_id="connect_ibkr_gateway", response_model=GatewayConnectResponse)
+async def connect_gateway(request: IBKRConnectionRequest) -> GatewayConnectResponse:
+  """Connect to IBKR Gateway with optional username.
+
+  If username is provided and differs from current, restarts the gateway container
+  with the new username (different docker compose). If empty, uses the configured
+  username from env/.env.
+
+  Args:
+    request: Connection request with optional username
+
+  Returns:
+    GatewayConnectResponse with success status and message
+
+  """
+  try:
+    username = request.username
+    if username:
+      logger.info(f"Connecting to IBKR Gateway with username: {username}")
+      success = await gateway_manager.restart_gateway_with_user(username)
+    else:
+      logger.info("Connecting to IBKR Gateway with default username")
+      success = await gateway_manager.start_gateway()
+
+    if success:
+      return GatewayConnectResponse(
+        success=True,
+        message="Successfully connected to IBKR Gateway",
+        username=username,
+      )
+    else:
+      return GatewayConnectResponse(
+        success=False,
+        message="Failed to connect to IBKR Gateway",
+        username=username,
+      )
+  except Exception as e:
+    logger.exception("Error connecting to IBKR Gateway")
+    return GatewayConnectResponse(
+      success=False,
+      message=f"Connection error: {str(e)}",
+      username=request.username,
+    )

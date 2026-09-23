@@ -96,7 +96,8 @@ class ConfigManager:
           (defaults to ~/.secrets/ibkr-gateway/abc_password)
         tws_rdp_port: Host port for container-side RDP (default: 3389)
         ib_gateway_tws_settings_path: Host path for TWS settings persistence
-          (defaults to ./tws_settings for ib-gateway, ./config for tws-rdesktop)
+          (defaults to <ib_gateway_data_path>/<username>/tws_settings for ib-gateway,
+          <ib_gateway_data_path>/<username>/config for tws-rdesktop)
         mcp_transport: MCP transport type (streamable-http or sse)
 
     """
@@ -129,6 +130,17 @@ class ConfigManager:
       config_kwargs["ib_gateway_data_path"] = ib_gateway_data_path
     config_kwargs["mcp_transport"] = mcp_transport
     cls._instance = Config(**config_kwargs)
+    return cls._instance
+
+  @classmethod
+  def update_username(cls, username: str) -> Config:
+    """Update the username in the existing config and return updated config."""
+    if cls._instance is None:
+      raise RuntimeError("Config not initialized. Call init_config first.")
+    # Create new config with updated username, preserving other settings
+    config_dict = cls._instance.model_dump()
+    config_dict["ib_gateway_username"] = username
+    cls._instance = Config(**config_dict)
     return cls._instance
 
 

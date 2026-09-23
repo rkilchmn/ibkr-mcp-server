@@ -152,13 +152,13 @@ You can use http://localhost:6080/ for browser based VNC
 | `IB_GATEWAY_PASSWORD` | *(none)* | IBKR Gateway password (less secure than password file) |
 | `IB_GATEWAY_PASSWORD_FILE` | *(none)* | Explicit path to the password file (takes precedence over `IB_GATEWAY_CREDENTIALS_PATH`) |
 | `IB_GATEWAY_CREDENTIALS_PATH` | `~/.secrets/ib-gateway` | Directory for password files; path is `<IB_GATEWAY_CREDENTIALS_PATH>/<IB_GATEWAY_USERNAME>` |
-| `IB_GATEWAY_DATA_PATH` | `ib-gateway-data` | Base directory for `.docker/` and TWS settings |
+| `IB_GATEWAY_DATA_PATH` | `ib-gateway-data` | Base directory for `.docker/` and per-user TWS settings (`<IB_GATEWAY_DATA_PATH>/<IB_GATEWAY_USERNAME>/`) |
 | `PASSWORD_FILE` | `~/.secrets/ib-gateway/abc_password` | Host path to abc_password secret file |
 | `VNC_PASSWORD_FILE` | `~/.secrets/ib-gateway/vnc_password` | Host path to VNC password secret file |
 | `IB_GATEWAY_VNC_PASSWORD` | *(none)* | VNC password (less secure than VNC password file) |
 | `IB_GATEWAY_VNC_PORT` | `5900` | Host port for VNC |
 | `IB_GATEWAY_IMAGE` | `ghcr.io/gnzsnz/ib-gateway:latest` | Docker image for IBKR Gateway |
-| `IB_GATEWAY_TWS_SETTINGS_PATH` | *(image-specific)* | Host path for TWS settings persistence (default: `<IB_GATEWAY_DATA_PATH>/tws_settings` for ib-gateway, `<IB_GATEWAY_DATA_PATH>/config` for tws-rdesktop) |
+| `IB_GATEWAY_TWS_SETTINGS_PATH` | *(image-specific)* | Host path for TWS settings persistence (default: `<IB_GATEWAY_DATA_PATH>/<IB_GATEWAY_USERNAME>/tws_settings` for ib-gateway, `<IB_GATEWAY_DATA_PATH>/<IB_GATEWAY_USERNAME>/config` for tws-rdesktop) |
 | `TWS_RDP_PORT` | `3389` | Host port for container-side RDP |
 | `MCP_PORT` | `8000` | MCP application port |
 | `READ_ONLY_API` | `true` | IBKR Gateway read-only API mode |
@@ -1141,15 +1141,15 @@ curl -X POST "http://localhost:8000/ibkr/connection/reconnect"
 
 ## Docker Files
 
-The server generates and manages Docker compose files and persists startup timings. By default these are stored under `ib-gateway-data/` in the current directory; override with `IB_GATEWAY_DATA_PATH` env var or `--ib-gateway-data-path` CLI arg.
+The server generates and manages Docker compose files and persists startup timings. By default these are stored under `ib-gateway-data/` in the current directory; override with `IB_GATEWAY_DATA_PATH` env var or `--ib-gateway-data-path` CLI arg. The `.docker/` directory is shared across users; per-user TWS settings are stored under `<data_path>/<IB_GATEWAY_USERNAME>/`.
 
 | File | Description |
 |------|-------------|
 | `<data_path>/.docker/docker-compose.yml` | Current Docker compose file used to start the container |
 | `<data_path>/.docker/docker-compose.last-success.yml` | Last successfully deployed compose file (used for comparison and rotation) |
 | `<data_path>/startup-timings.json` | Persisted startup timings per image, used to optimize future startup wait periods |
-| `<data_path>/tws_settings/` | TWS settings persistence directory (for `ib-gateway` image) |
-| `<data_path>/config/` | TWS settings persistence directory (for `tws-rdesktop` image) |
+| `<data_path>/<username>/tws_settings/` | TWS settings persistence directory (for `ib-gateway` image) |
+| `<data_path>/<username>/config/` | TWS settings persistence directory (for `tws-rdesktop` image) |
 
 Compose files are automatically rotated when configuration changes (e.g., image change, port change). On successful container start, the current compose is saved to `docker-compose.last-success.yml` and the startup timing is persisted to `startup-timings.json`.
 
