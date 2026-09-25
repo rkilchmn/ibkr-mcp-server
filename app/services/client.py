@@ -23,6 +23,8 @@ class IBClient:
   def __init__(self) -> None:
     """Initialize IB interface."""
     self.config = get_config()
+    self.host: str | None = None
+    self.port: int | None = None
     self.ib = IB()
 
   async def _connect(self) -> None:
@@ -30,8 +32,8 @@ class IBClient:
     if self.ib.isConnected():
       return
 
-    host = self.config.ib_gateway_host
-    port = self.config.ib_gateway_port
+    host = self.host or self.config.ib_gateway_host
+    port = self.port or self.config.ib_gateway_port
 
     try:
       await self.ib.connectAsync(

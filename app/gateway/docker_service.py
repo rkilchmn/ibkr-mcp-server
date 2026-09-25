@@ -14,36 +14,24 @@ from ib_async import IB
 from typing import Any
 from app.core.setup_logging import logger
 from app.core.config import get_config
+from app.core.accounts import HOST_LIVE_API_PORT, HOST_PAPER_API_PORT
 
 config = get_config()
 
 VNC_PORT_DOCKER = 5900
-ib_gateway_vnc_port = config.ib_gateway_vnc_port
 RDP_PORT_DOCKER = 3389
-tws_rdp_port = config.tws_rdp_port
 
 # Run container on the host network when NAT is broken on this host.
 # Default false: container uses the Docker bridge network.
 USE_HOST_NETWORK = os.getenv("IB_GATEWAY_USE_HOST_NETWORK", "false").lower() == "true"
 
 # API ports through socat (host port -> mapped to container port)
-# Image-specific container ports, but always mapped to the same host ports:
-#   Live: container 4003/7498 -> host 4001
-#   Paper: container 4004/7499 -> host 4002
+# Image-specific container ports:
+#   Live: container 4003/7498
+#   Paper: container 4004/7499
+# Host ports are derived per account: base (4001 live / 4002 paper) + 2 * account index,
+# so parallel gateway containers do not interfere with each other.
 _is_tws_image = "tws-rdesktop" in config.ib_gateway_image
-if _is_tws_image:
-  CONTAINER_LIVE_API_PORT = 7498
-  CONTAINER_PAPER_API_PORT = 7499
-else:
-  CONTAINER_LIVE_API_PORT = 4003
-  CONTAINER_PAPER_API_PORT = 4004
-HOST_LIVE_API_PORT = 4001
-HOST_PAPER_API_PORT = 4002
-
-if config.ib_gateway_tradingmode == "live":
-  API_PORT = HOST_LIVE_API_PORT
-else:
-  API_PORT = HOST_PAPER_API_PORT
 
 CONTAINER_SECRETS_PATH = "/run/secrets"
 
@@ -85,29 +73,22 @@ def _get_startup_period() -> int:
   """Return the startup period for the current image."""
   return _effective_startup_period
 
-# Determine the password file host path
-password_file_host_path: str | None = None
-if config.ib_gateway_password_file:
-  password_file_host_path = str(Path(config.ib_gateway_password_file).expanduser())
-elif config.ib_gateway_password:
-  password_file_host_path = None
-else:
-  password_file_host_path = str(
-    Path(config.ib_gateway_credentials_path, config.ib_gateway_username).expanduser(),
-  )
+def build_docker_config(
+  cfg,
+  username: str | None = None,
+  port_index: int = 0,
+  trading_mode: str | None = None,
+) -> dict[str, Any]:
+  """Build docker configuration for one account's gateway container.
 
-if password_file_host_path:
-  path_obj = Path(password_file_host_path)
-  if not path_obj.exists():
-    logger.warning(
-      f"Password file {password_file_host_path} does not exist. "
-      f"The container may fail to start without credentials.",
-    )
+  Args:
+    cfg: Application config.
+    username: Gateway username override (defaults to the configured username).
+    port_index: 0-based account index used to offset host ports so parallel
+      containers do not interfere with each other.
+    trading_mode: Per-account trading mode ("paper"/"live"), overrides config.
 
-def build_docker_config(cfg, username: str | None = None) -> dict[str, Any]:
-  """Build docker configuration with optional username override."""
-  ib_gateway_vnc_port = cfg.ib_gateway_vnc_port
-  tws_rdp_port = cfg.tws_rdp_port
+  """
   _is_tws_image = "tws-rdesktop" in cfg.ib_gateway_image
   if _is_tws_image:
     CONTAINER_LIVE_API_PORT = 7498
@@ -115,15 +96,17 @@ def build_docker_config(cfg, username: str | None = None) -> dict[str, Any]:
   else:
     CONTAINER_LIVE_API_PORT = 4003
     CONTAINER_PAPER_API_PORT = 4004
-  HOST_LIVE_API_PORT = 4001
-  HOST_PAPER_API_PORT = 4002
 
-  if cfg.ib_gateway_tradingmode == "live":
-    API_PORT = HOST_LIVE_API_PORT
-  else:
-    API_PORT = HOST_PAPER_API_PORT
+  effective_trading_mode = (trading_mode or cfg.ib_gateway_tradingmode).lower()
+  if effective_trading_mode not in ("paper", "live"):
+    raise ValueError(f"Invalid trading mode: {effective_trading_mode}")
 
-  CONTAINER_SECRETS_PATH = "/run/secrets"
+  # Per-account host ports. API ports use stride 2 (each container maps both
+  # its live and paper API port) so parallel containers never share a port.
+  vnc_host_port = cfg.ib_gateway_vnc_port + port_index
+  rdp_host_port = cfg.tws_rdp_port + port_index
+  live_api_host_port = HOST_LIVE_API_PORT + 2 * port_index
+  paper_api_host_port = HOST_PAPER_API_PORT + 2 * port_index
 
   effective_username = username or cfg.ib_gateway_username
 
@@ -133,21 +116,21 @@ def build_docker_config(cfg, username: str | None = None) -> dict[str, Any]:
     if USE_HOST_NETWORK
     else {
       f"{VNC_PORT_DOCKER}/tcp": [
-        {"HostIp": "127.0.0.1", "HostPort": str(ib_gateway_vnc_port)},
+        {"HostIp": "127.0.0.1", "HostPort": str(vnc_host_port)},
       ],
       f"{RDP_PORT_DOCKER}/tcp": [
-        {"HostIp": "127.0.0.1", "HostPort": str(tws_rdp_port)},
+        {"HostIp": "127.0.0.1", "HostPort": str(rdp_host_port)},
       ],
       f"{CONTAINER_LIVE_API_PORT}/tcp": [
-        {"HostIp": "127.0.0.1", "HostPort": str(HOST_LIVE_API_PORT)},
+        {"HostIp": "127.0.0.1", "HostPort": str(live_api_host_port)},
       ],
       f"{CONTAINER_PAPER_API_PORT}/tcp": [
-        {"HostIp": "127.0.0.1", "HostPort": str(HOST_PAPER_API_PORT)},
+        {"HostIp": "127.0.0.1", "HostPort": str(paper_api_host_port)},
       ],
     },
     "environment": {
       "TWS_USERID": effective_username,
-      "TRADING_MODE": cfg.ib_gateway_tradingmode,
+      "TRADING_MODE": effective_trading_mode,
       "READ_ONLY_API": "yes" if cfg.ib_gateway_readonly else "no",
       "AUTO_RESTART_TIME": os.getenv("IB_GATEWAY_AUTO_RESTART_TIME", ""),
     },
@@ -220,14 +203,21 @@ def build_docker_config(cfg, username: str | None = None) -> dict[str, Any]:
   elif cfg.ib_gateway_vnc_password:
     docker_config["environment"]["VNC_SERVER_PASSWORD"] = cfg.ib_gateway_vnc_password
 
+  # Password file resolution: prefer the per-account file under the
+  # credentials path (<credentials_path>/<username>) so each account uses its
+  # own password. Fall back to the explicitly configured password file (legacy
+  # single-account behavior) only if the per-account file does not exist.
+  per_user_password_file = str(
+    Path(cfg.ib_gateway_credentials_path, effective_username).expanduser(),
+  )
   password_file_host_path: str | None = None
-  if cfg.ib_gateway_password_file:
-    password_file_host_path = str(Path(cfg.ib_gateway_password_file).expanduser())
-  elif cfg.ib_gateway_password:
+  if cfg.ib_gateway_password:
     password_file_host_path = None
+  elif Path(per_user_password_file).exists() or not cfg.ib_gateway_password_file:
+    password_file_host_path = per_user_password_file
   else:
     password_file_host_path = str(
-      Path(cfg.ib_gateway_credentials_path, effective_username).expanduser(),
+      Path(cfg.ib_gateway_password_file).expanduser(),
     )
 
   if password_file_host_path:
@@ -341,10 +331,33 @@ _PASSTHROUGH_ENV_VARS = [
 class IBKRGatewayDockerService:
   """Service for managing IBKR Gateway Docker container."""
 
-  def __init__(self, username: str | None = None) -> None:
-    """Initialize the IBKR Gateway Docker service."""
+  def __init__(
+    self,
+    username: str | None = None,
+    port_index: int = 0,
+    trading_mode: str | None = None,
+    container_name: str | None = None,
+  ) -> None:
+    """Initialize the IBKR Gateway Docker service for one account.
+
+    Args:
+      username: Gateway username (container runs this user's session).
+      port_index: 0-based account index offsetting all host ports so
+        parallel gateway containers do not interfere with each other.
+      trading_mode: Per-account trading mode ("paper"/"live").
+      container_name: Container name (defaults to ibkr-gateway-<username>).
+
+    """
     self.client = docker.from_env()
-    self.container_name = "ibkr-gateway"
+    self._username = username
+    self.port_index = port_index
+    self.trading_mode = (trading_mode or config.ib_gateway_tradingmode).lower()
+    self.container_name = container_name or f"ibkr-gateway-{self._username}"
+    self.api_port = (
+      HOST_LIVE_API_PORT
+      if self.trading_mode == "live"
+      else HOST_PAPER_API_PORT
+    ) + 2 * port_index
     self.container: docker.models.containers.Container | None = None
     self._health_check_semaphore = asyncio.Semaphore(1)
     self._last_health_check = 0
@@ -353,18 +366,25 @@ class IBKRGatewayDockerService:
     self._gateway_timeout = config.ib_gateway_timeout
     self._data_dir = Path(config.ib_gateway_data_path)
     self._compose_dir = self._data_dir / ".docker"
-    self._compose_file = self._compose_dir / "docker-compose.yml"
-    self._compose_last_success = self._compose_dir / "docker-compose.last-success.yml"
-    self._username = username
+    self._compose_file = (
+      self._compose_dir / f"docker-compose.{self.container_name}.yml"
+    )
+    self._compose_last_success = (
+      self._compose_dir / f"docker-compose.{self.container_name}.last-success.yml"
+    )
 
   def _get_compose_paths(self) -> tuple[Path, Path]:
     """Return the current and last-success compose file paths."""
     return self._compose_file, self._compose_last_success
 
-  def _get_docker_config(self, username: str | None = None) -> dict[str, Any]:
-    """Get docker config with optional username override."""
-    effective_username = username or self._username
-    return build_docker_config(config, effective_username)
+  def _get_docker_config(self) -> dict[str, Any]:
+    """Get the docker config for this account's container."""
+    return build_docker_config(
+      config,
+      username=self._username,
+      port_index=self.port_index,
+      trading_mode=self.trading_mode,
+    )
 
   def _generate_compose(self, docker_config: dict[str, Any]) -> dict[str, Any]:
     """Generate a docker-compose dict from the current docker_config."""
@@ -373,7 +393,7 @@ class IBKRGatewayDockerService:
     volumes = docker_config.get("volumes") or {}
 
     services: dict[str, Any] = {
-      "ibkr-gateway": {
+      self.container_name: {
         "image": docker_config["image"],
         "container_name": self.container_name,
         "environment": environment,
@@ -382,23 +402,24 @@ class IBKRGatewayDockerService:
         "restart": "unless-stopped",
       }
     }
+    service = services[self.container_name]
 
     if USE_HOST_NETWORK:
-      services["ibkr-gateway"]["network_mode"] = "host"
+      service["network_mode"] = "host"
     else:
       for container_port, host_bindings in ports.items():
         port_number = container_port.replace("/tcp", "")
         for binding in host_bindings:
           host_port = binding.get("HostPort", port_number)
           host_ip = binding.get("HostIp", "127.0.0.1")
-          services["ibkr-gateway"]["ports"].append(
+          service["ports"].append(
             f"{host_ip}:{host_port}:{port_number}"
           )
 
     for host_path, vol_config in volumes.items():
       bind = vol_config.get("bind", host_path)
       mode = vol_config.get("mode", "rw")
-      services["ibkr-gateway"]["volumes"].append(
+      service["volumes"].append(
         f"{host_path}:{bind}:{mode}"
       )
 
@@ -423,11 +444,11 @@ class IBKRGatewayDockerService:
       elif "status" in chunk:
         logger.info(f"  {chunk['status']}")
 
-  async def start_gateway(self, username: str | None = None) -> bool:
-    """Start the IBKR Gateway container."""
+  async def start_gateway(self) -> bool:
+    """Start this account's IBKR Gateway container."""
     try:
       current_compose, last_success = self._get_compose_paths()
-      docker_config = self._get_docker_config(username)
+      docker_config = self._get_docker_config()
       new_compose = self._generate_compose(docker_config)
       new_content = yaml.safe_dump(new_compose, sort_keys=False)
       new_hash = hashlib.sha256(new_content.encode()).hexdigest()
@@ -545,7 +566,7 @@ class IBKRGatewayDockerService:
     ib = None
     try:
       ib = IB()
-      await ib.connectAsync("127.0.0.1", API_PORT, 1111)
+      await ib.connectAsync("127.0.0.1", self.api_port, 1111)
       return ib.isConnected()
     except Exception:
       return False

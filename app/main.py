@@ -19,10 +19,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
   from app.core.config import get_config
   cfg = get_config()
   logger.info(
-    f"IBKR Gateway tradingmode={cfg.ib_gateway_tradingmode} "
-    f"(change with --ib-gateway-tradingmode=live)"
-  )
-  logger.info(
     f"IBKR Gateway readonly={cfg.ib_gateway_readonly} "
     f"(change with --read-only-api=false)"
   )
@@ -31,17 +27,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     f"(change with --mcp-transport=sse)"
   )
   try:
-    success = await gateway.gateway_manager.start_gateway()
-    if success:
-      logger.info("IBKR Gateway started successfully!")
+    # Start one gateway container per configured account, in parallel.
+    results = await gateway.gateway_manager.start_all_gateways()
+    started = [aid for aid, ok in results.items() if ok]
+    failed = [aid for aid, ok in results.items() if not ok]
+    for account_id in started:
+      logger.info(f"IBKR Gateway for account {account_id} started successfully!")
+    for account_id in failed:
+      logger.error(f"Failed to start IBKR Gateway for account {account_id}.")
+    if started:
       if cfg.mcp_transport == "streamable-http":
         mcp.mount_http()
       else:
         mcp.mount_sse()
     else:
-      logger.error("Failed to start IBKR Gateway.")
+      logger.error("Failed to start any IBKR Gateway.")
   except Exception:
-    logger.exception("Error starting IBKR Gateway.")
+    logger.exception("Error starting IBKR Gateways.")
 
   yield
 

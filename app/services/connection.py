@@ -11,15 +11,17 @@ class ConnectionClient(IBClient):
 
   async def get_connection_status(self) -> ConnectionStatus:
     """Get current connection status.
-    
+
     Returns:
       Connection status information
     """
     config = get_config()
-    
+    host = self.host or config.ib_gateway_host
+    port = self.port or config.ib_gateway_port
+
     try:
       is_connected = self.ib.isConnected()
-      
+
       # Get accounts if connected
       accounts = []
       if is_connected:
@@ -27,11 +29,11 @@ class ConnectionClient(IBClient):
           accounts = self.ib.managedAccounts()
         except Exception as e:
           logger.debug(f"Could not get accounts: {e}")
-      
+
       return ConnectionStatus(
         connected=is_connected,
-        host=config.ib_gateway_host,
-        port=config.ib_gateway_port,
+        host=host,
+        port=port,
         client_id=None,  # Client ID is dynamic per connection
         accounts=accounts if accounts else []
       )
@@ -39,8 +41,8 @@ class ConnectionClient(IBClient):
       logger.error(f"Failed to get connection status: {e}")
       return ConnectionStatus(
         connected=False,
-        host=config.ib_gateway_host,
-        port=config.ib_gateway_port,
+        host=host,
+        port=port,
         client_id=None,
         accounts=[]
       )

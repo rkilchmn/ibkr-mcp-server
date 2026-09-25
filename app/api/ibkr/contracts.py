@@ -4,9 +4,13 @@ import ast
 import json
 from fastapi import Query
 from loguru import logger
-from app.api.ibkr import ibkr_router, ib_interface
+from app.api.ibkr import ibkr_router, resolve_interface
 
 # Module-level query parameter definitions
+ACCOUNT_ID_QUERY = Query(
+  default=None,
+  description="Account to use (account id from /gateway/status). Empty/omitted uses the default account.", #noqa: E501
+)
 OPTIONS_QUERY = Query(default=None, description="Optional parameters as JSON string")
 FILTERS_QUERY = Query(default=None, description="Filters as JSON string")
 
@@ -28,10 +32,12 @@ async def get_contract_details(
   exchange: str = Query(default="SMART", description="Exchange (used with symbol)"),
   currency: str = Query(default="USD", description="Currency (used with symbol)"),
   options: str | None = OPTIONS_QUERY,
+  account_id: str | None = ACCOUNT_ID_QUERY,
 ) -> dict:
   """Get contract details for a given symbol.
 
   Args:
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
     symbol (str): Symbol to get contract details for.
     sec_type (str): Security type (STK, IND, CASH, BAG, BOND, FUT, OPT)
     exchange (str): Exchange (CBOE, NYSE, ARCA, BATS, NASDAQ)
@@ -59,9 +65,10 @@ async def get_contract_details(
     }
 
   """
+  iface = resolve_interface(account_id)
   try:
     options_dict = _parse_json_or_python_dict(options)
-    result = await ib_interface.get_contract_details(
+    result = await iface.get_contract_details(
       contract_id=contract_id,
       symbol=symbol,
       sec_type=sec_type,
@@ -87,10 +94,12 @@ async def get_options_chain(
   underlying_con_id: int,
   exchange: str | None = None,
   filters: str | None = FILTERS_QUERY,
+  account_id: str | None = ACCOUNT_ID_QUERY,
 ) -> dict:
   """Get options chain for a given underlying contract.
 
   Args:
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
     underlying_symbol (str): Symbol of the underlying contract.
     underlying_sec_type (str): Security type of the underlying contract.
     underlying_con_id (int): ConID of the underlying contract.
@@ -125,10 +134,11 @@ async def get_options_chain(
     }
 
   """
+  iface = resolve_interface(account_id)
   try:
     logger.debug("Getting options chain for symbol: {symbol}", symbol=underlying_symbol)
     filters_dict = _parse_json_or_python_dict(filters)
-    result = await ib_interface.get_options_chain(
+    result = await iface.get_options_chain(
       underlying_symbol=underlying_symbol,
       underlying_sec_type=underlying_sec_type,
       underlying_con_id=underlying_con_id,

@@ -89,6 +89,7 @@ class OrderRequest(BaseModel):
   good_till_date: str | None = Field(None, description="Good till date")
   outside_rth: bool = Field(default=False, description="Allow outside regular trading hours")
   hidden: bool = Field(default=False, description="Hidden order")
+  order_ref: str | None = Field(None, description="Custom order reference string")
 
   @field_validator('total_quantity')
   @classmethod
@@ -103,6 +104,10 @@ class PlaceOrderRequest(BaseModel):
 
   contract: ContractRequest = Field(..., description="Contract to trade")
   order: OrderRequest = Field(..., description="Order details")
+  account_id: str | None = Field(
+    None,
+    description="Account to use (account id from /gateway/status). Empty/None uses the default account.", #noqa: E501
+  )
 
 
 class OrderResponse(BaseModel):
@@ -116,6 +121,7 @@ class OrderResponse(BaseModel):
   filled: float = Field(default=0, description="Filled quantity")
   remaining: float = Field(default=0, description="Remaining quantity")
   avg_fill_price: float | None = Field(None, description="Average fill price")
+  order_ref: str | None = Field(None, description="Custom order reference string")
 
 
 class OrderExecution(BaseModel):
@@ -130,6 +136,7 @@ class OrderExecution(BaseModel):
   cum_qty: float = Field(..., description="Cumulative quantity")
   avg_price: float = Field(..., description="Average price")
   time: str = Field(..., description="Execution time")
+  order_ref: str | None = Field(None, description="Custom order reference string")
 
 
 class OpenOrder(BaseModel):
@@ -147,3 +154,4 @@ class OpenOrder(BaseModel):
   filled: float = Field(..., description="Filled quantity")
   remaining: float = Field(..., description="Remaining quantity")
   avg_fill_price: float | None = Field(None, description="Average fill price")
+  order_ref: str | None = Field(None, description="Custom order reference string")

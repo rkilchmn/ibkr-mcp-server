@@ -3,11 +3,15 @@ import ast
 import json
 from fastapi import Query
 from fastapi.responses import JSONResponse
-from app.api.ibkr import ibkr_router, ib_interface
+from app.api.ibkr import ibkr_router, resolve_interface
 from app.core.setup_logging import logger
 from app.models import MarketData, BarData
 
 # Module-level query parameter definitions
+ACCOUNT_ID_QUERY = Query(
+  default=None,
+  description="Account to use (account id from /gateway/status). Empty/omitted uses the default account.", #noqa: E501
+)
 CONTRACT_IDS_QUERY = Query(default=None, description="List of contract IDs")
 FILTERS_QUERY = Query(default=None, description="Filters as JSON string")
 CRITERIA_QUERY = Query(default=None, description="Criteria as JSON string")
@@ -26,7 +30,8 @@ async def get_market_data(
   sec_type: str = SEC_TYPE_QUERY,
   exchange: str = EXCHANGE_QUERY,
   currency: str = CURRENCY_QUERY,
-  subscription_type: str = "realtime" 
+   subscription_type: str = "realtime",
+   account_id: str | None = ACCOUNT_ID_QUERY,
 ) -> list[MarketData]:
   """Get market data for a list of contract IDs or symbol.
 
@@ -35,6 +40,7 @@ async def get_market_data(
   resolve the contract ID first.
 
   Args:
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
     contract_ids: One or more contract IDs. Pass a single int or a list of ints.
     symbol: Symbol to get data for (optional if contract_ids is provided)
     sec_type: Security type (used with symbol, default: STK)
@@ -81,13 +87,14 @@ async def get_market_data(
       content={"error": "Either 'symbol' or 'contract_ids' must be provided"}
     )
   
+  iface = resolve_interface(account_id)
   try:
     logger.debug(
       "Getting market data for contract_ids={contract_ids}, symbol={symbol}",
       contract_ids=contract_ids,
       symbol=symbol,
     )
-    market_data = await ib_interface.get_tickers(
+    market_data = await iface.get_tickers(
       contract_ids=contract_ids,
       symbol=symbol,
       sec_type=sec_type,
@@ -114,10 +121,12 @@ async def get_and_filter_options_chain(
   exchange: str | None = None,
   filters: str | None = FILTERS_QUERY,
   criteria: str | None = CRITERIA_QUERY,
+  account_id: str | None = ACCOUNT_ID_QUERY,
 ) -> list[MarketData]:
   """Get and filter option chain based on market data criteria.
 
   Args:
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
     underlying_symbol: Symbol of the underlying contract.
     underlying_sec_type: Security type of the underlying contract.
     underlying_con_id: ConID of the underlying contract.
@@ -139,6 +148,7 @@ async def get_and_filter_options_chain(
     ]
 
   """
+  iface = resolve_interface(account_id)
   try:
     logger.debug(
       f"""
@@ -166,7 +176,7 @@ async def get_and_filter_options_chain(
     else:
       criteria_dict = None
 
-    filtered_options = await ib_interface.get_and_filter_options(
+    filtered_options = await iface.get_and_filter_options(
       underlying_symbol,
       underlying_sec_type,
       underlying_con_id,
@@ -204,14 +214,16 @@ async def get_historical_data(
   what_to_show: str = Query(default="TRADES", description="What to show (TRADES, MIDPOINT, BID, ASK)"),
   use_rth: bool = Query(default=True, description="Use regular trading hours only"),
   end_date: str | None = Query(default=None, description="End date for historical data. Formats: 'YYYYMMDD' (converted to 'YYYYMMDD 15:59:00 {timezone}'), 'YYYYMMDD HH:MM:SS', or 'YYYYMMDD HH:MM:SS Timezone'"),
+  account_id: str | None = ACCOUNT_ID_QUERY,
 ) -> list[BarData]:
   """Get historical market data.
-  
+
   Retrieve historical OHLCV bar data for a given contract.
   Either symbol or contract_id must be provided. Using contract_id is recommended
   as it avoids an additional symbol lookup and is more efficient.
-  
+
   Args:
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
     symbol: Symbol to get data for (optional if contract_id is provided)
     contract_id: Contract ID to get data for (optional if symbol is provided)
     sec_type: Security type (STK, OPT, FUT, etc.) - used with symbol
@@ -264,9 +276,10 @@ async def get_historical_data(
       content={"error": "Either 'symbol' or 'contract_id' must be provided"}
     )
   
+  iface = resolve_interface(account_id)
   try:
     logger.debug(f"Getting historical data for symbol={symbol}, contract_id={contract_id}")
-    bars = await ib_interface.get_historical_data(
+    bars = await iface.get_historical_data(
       symbol=symbol,
       contract_id=contract_id,
       sec_type=sec_type,

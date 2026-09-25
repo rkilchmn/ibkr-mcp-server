@@ -1,22 +1,31 @@
 """Scanner-related tools."""
 from fastapi import Query
-from app.api.ibkr import ibkr_router, ib_interface
+from app.api.ibkr import ibkr_router, resolve_interface
 from app.core.setup_logging import logger
 from app.models import ScannerRequest
 from pydantic import ValidationError
 
 # Module-level query parameter definitions
+ACCOUNT_ID_QUERY = Query(
+  default=None,
+  description="Account to use (account id from /gateway/status). Empty/omitted uses the default account.", #noqa: E501
+)
 FILTER_CODES_QUERY = Query(
   default=None,
   description="List of filter parameters in 'parameter=value' format",
 )
 
 @ibkr_router.get("/scanner/workflow", operation_id="get_scanner_workflow")
-async def get_scanner_workflow() -> dict:
+async def get_scanner_workflow(
+  account_id: str | None = ACCOUNT_ID_QUERY,
+) -> dict:
   """Get step-by-step workflow for using scanner effectively.
 
   Returns a guide on how to use the scanner endpoints efficiently,
-  including the recommended order of operations and best practices.
+  including the recommended order of calls and best practices.
+
+  Args:
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
 
   Returns:
     dict: Step-by-step workflow and usage tips
@@ -32,6 +41,7 @@ async def get_scanner_workflow() -> dict:
     }
 
   """
+  resolve_interface(account_id)
   logger.debug("Returning scanner workflow")
   return {
     "workflow": [
@@ -106,10 +116,15 @@ async def get_scanner_workflow() -> dict:
   "/scanner/instrument_codes",
   operation_id="get_scanner_instrument_codes",
 )
-async def get_scanner_instrument_codes() -> dict:
+async def get_scanner_instrument_codes(
+  account_id: str | None = ACCOUNT_ID_QUERY,
+) -> dict:
   """Get detailed scanner instrument codes with descriptions.
 
   Returns available instrument types with descriptions and usage information.
+
+  Args:
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
 
   Returns:
     dict: Instrument codes with descriptions and examples
@@ -129,9 +144,10 @@ async def get_scanner_instrument_codes() -> dict:
     }
 
   """
+  iface = resolve_interface(account_id)
   try:
     logger.debug("Getting scanner instrument codes")
-    tags = await ib_interface.get_scanner_instrument_codes()
+    tags = await iface.get_scanner_instrument_codes()
 
     # Create detailed response with descriptions
     descriptions = {
@@ -157,10 +173,15 @@ async def get_scanner_instrument_codes() -> dict:
     }
 
 @ibkr_router.get("/scanner/location_codes", operation_id="get_scanner_location_codes")
-async def get_scanner_location_codes() -> dict:
+async def get_scanner_location_codes(
+  account_id: str | None = ACCOUNT_ID_QUERY,
+) -> dict:
   """Get detailed scanner location codes with descriptions.
 
   Returns available location codes with descriptions and regional information.
+
+  Args:
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
 
   Returns:
     dict: Location codes with descriptions and examples
@@ -178,9 +199,10 @@ async def get_scanner_location_codes() -> dict:
     }
 
   """
+  iface = resolve_interface(account_id)
   try:
     logger.debug("Getting scanner location codes")
-    tags = await ib_interface.get_scanner_location_codes()
+    tags = await iface.get_scanner_location_codes()
     descriptions = {
       "STK.US": "US stocks and ETFs",
       "STK.EU": "European stocks",
@@ -198,10 +220,15 @@ async def get_scanner_location_codes() -> dict:
     }
 
 @ibkr_router.get("/scanner/scan_codes", operation_id="get_scanner_scan_codes")
-async def get_scanner_scan_codes() -> dict:
+async def get_scanner_scan_codes(
+  account_id: str | None = ACCOUNT_ID_QUERY,
+) -> dict:
   """Get detailed scanner scan codes with descriptions.
 
   Returns available scan codes with descriptions and usage information.
+
+  Args:
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
 
   Returns:
     dict: Scan codes with descriptions and examples
@@ -219,9 +246,10 @@ async def get_scanner_scan_codes() -> dict:
     }
 
   """
+  iface = resolve_interface(account_id)
   try:
     logger.debug("Getting scanner scan codes")
-    tags = await ib_interface.get_scanner_scan_codes()
+    tags = await iface.get_scanner_scan_codes()
 
     # Create detailed response with descriptions
     descriptions = {
@@ -249,10 +277,15 @@ async def get_scanner_scan_codes() -> dict:
     }
 
 @ibkr_router.get("/scanner/filter_codes", operation_id="get_scanner_filter_codes")
-async def get_scanner_filter_codes() -> dict:
+async def get_scanner_filter_codes(
+  account_id: str | None = ACCOUNT_ID_QUERY,
+) -> dict:
   """Get detailed scanner filter codes with examples and usage hints.
 
   Returns available filter codes with examples and descriptions for common filters.
+
+  Args:
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
 
   Returns:
     dict: Filter codes with examples and usage information
@@ -270,9 +303,10 @@ async def get_scanner_filter_codes() -> dict:
     }
 
   """
+  iface = resolve_interface(account_id)
   try:
     logger.debug("Getting scanner filter codes")
-    tags = await ib_interface.get_scanner_filter_codes()
+    tags = await iface.get_scanner_filter_codes()
 
   except Exception as e:
     logger.error("Error in get_scanner_filter_codes: {!s}", str(e))
@@ -320,6 +354,7 @@ async def get_scanner_results(
     default=50,
     description="Maximum number of results to return (1-50)",
   ),
+  account_id: str | None = ACCOUNT_ID_QUERY,
 ) -> str:
   """Get scanner results from Interactive Brokers TWS.
 
@@ -327,6 +362,7 @@ async def get_scanner_results(
   instruments matching the given criteria.
 
   Args:
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
     instrument_code (str): Type of instrument to scan for (e.g., 'STK', 'FUT', 'OPT')
     location_code (str): Geographic location/market code (e.g., 'STK.US', 'STK.EU')
     scan_code (str): Predefined scan type (e.g., 'TOP_PERC_GAIN', 'MOST_ACTIVE').
@@ -342,6 +378,7 @@ async def get_scanner_results(
     "I found 3 stocks matching the scanner parameters: ['AAPL', 'MSFT', 'GOOGL']"
 
   """
+  iface = resolve_interface(account_id)
   try:
     # Use Pydantic model for validation and parsing
     try:
@@ -368,7 +405,7 @@ async def get_scanner_results(
       parsed filter codes: {scanner_request.get_filter_codes()},
       """,
     )
-    results = await ib_interface.get_scanner_results(scanner_request)
+    results = await iface.get_scanner_results(scanner_request)
   except Exception as e:
     logger.error("Error in get_scanner_results: {!s}", str(e))
     return "Error getting scanner results"

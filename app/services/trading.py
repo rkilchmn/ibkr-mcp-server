@@ -72,6 +72,8 @@ class TradingClient(IBClient):
       ib_order.goodAfterTime = order.good_after_time
     if order.good_till_date:
       ib_order.goodTillDate = order.good_till_date
+    if order.order_ref:
+      ib_order.orderRef = order.order_ref
     
     return ib_order
 
@@ -119,9 +121,9 @@ class TradingClient(IBClient):
         quantity=float(order.total_quantity),
         filled=float(trade.orderStatus.filled),
         remaining=float(trade.orderStatus.remaining),
-        avg_fill_price=float(trade.orderStatus.avgFillPrice) if trade.orderStatus.avgFillPrice else None
+        avg_fill_price=float(trade.orderStatus.avgFillPrice) if trade.orderStatus.avgFillPrice else None,
+        order_ref=trade.order.orderRef or None,
       )
-      
     except Exception as e:
       logger.error(f"Failed to place order: {e}")
       raise Exception(f"Order placement error: {e}")
@@ -178,20 +180,21 @@ class TradingClient(IBClient):
       
       orders_data = []
       for trade in trades:
-        orders_data.append(OpenOrder(
-          order_id=trade.order.orderId,
-          symbol=trade.contract.symbol,
-          sec_type=trade.contract.secType,
-          action=trade.order.action,
-          quantity=float(trade.order.totalQuantity),
-          order_type=trade.order.orderType,
-          status=trade.orderStatus.status,
-          limit_price=float(trade.order.lmtPrice) if trade.order.lmtPrice else None,
-          aux_price=float(trade.order.auxPrice) if trade.order.auxPrice else None,
-          filled=float(trade.orderStatus.filled),
-          remaining=float(trade.orderStatus.remaining),
-          avg_fill_price=float(trade.orderStatus.avgFillPrice) if trade.orderStatus.avgFillPrice else None
-        ))
+          orders_data.append(OpenOrder(
+            order_id=trade.order.orderId,
+            symbol=trade.contract.symbol,
+            sec_type=trade.contract.secType,
+            action=trade.order.action,
+            quantity=float(trade.order.totalQuantity),
+            order_type=trade.order.orderType,
+            status=trade.orderStatus.status,
+            limit_price=float(trade.order.lmtPrice) if trade.order.lmtPrice else None,
+            aux_price=float(trade.order.auxPrice) if trade.order.auxPrice else None,
+            filled=float(trade.orderStatus.filled),
+            remaining=float(trade.orderStatus.remaining),
+            avg_fill_price=float(trade.orderStatus.avgFillPrice) if trade.orderStatus.avgFillPrice else None,
+            order_ref=trade.order.orderRef or None,
+          ))
       
       return orders_data
     except Exception as e:

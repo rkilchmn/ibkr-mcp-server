@@ -1,9 +1,14 @@
 """Account management endpoints."""
 from fastapi import Query
 from fastapi.responses import JSONResponse
-from app.api.ibkr import ibkr_router, ib_interface
+from app.api.ibkr import ibkr_router, resolve_interface
 from app.core.setup_logging import logger
 from app.models import AccountSummary, AccountValue, Position
+
+ACCOUNT_ID_QUERY = Query(
+  default=None,
+  description="Account to use (account id from /gateway/status). Empty/omitted uses the default account.", #noqa: E501
+)
 
 
 @ibkr_router.get(
@@ -12,15 +17,17 @@ from app.models import AccountSummary, AccountValue, Position
   response_model=list[AccountSummary],
 )
 async def get_account_summary(
-  tags: str = Query(default="All", description="Tags to retrieve (default: All)")
+  tags: str = Query(default="All", description="Tags to retrieve (default: All)"),
+  account_id: str | None = ACCOUNT_ID_QUERY,
 ) -> list[AccountSummary]:
   """Get account summary information.
-  
+
   Returns account summary data including balances, buying power, and other account metrics.
-  
+
   Args:
     tags: Comma-separated list of tags to retrieve. Use "All" for all available tags.
-    
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
+
   Returns:
     List of account summary items with tag, value, currency, and account information.
     
@@ -31,9 +38,10 @@ async def get_account_summary(
       {"account": "DU123456", "tag": "TotalCashValue", "value": "50000.00", "currency": "USD"}
     ]
   """
+  iface = resolve_interface(account_id)
   try:
     logger.debug(f"Getting account summary with tags: {tags}")
-    summary = await ib_interface.get_account_summary(tags)
+    summary = await iface.get_account_summary(tags)
     return summary
   except Exception as e:
     logger.error(f"Error in get_account_summary: {e}")
@@ -48,24 +56,30 @@ async def get_account_summary(
   operation_id="get_account_values",
   response_model=list[AccountValue],
 )
-async def get_account_values() -> list[AccountValue]:
+async def get_account_values(
+  account_id: str | None = ACCOUNT_ID_QUERY,
+) -> list[AccountValue]:
   """Get all account values.
-  
+
   Returns detailed account value information including all available account metrics.
-  
+
+  Args:
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
+
   Returns:
     List of account values with key, value, currency, and account information.
-    
-  Example:
-    >>> await get_account_values()
-    [
-      {"account": "DU123456", "key": "CashBalance", "value": "50000.00", "currency": "USD"},
-      {"account": "DU123456", "key": "StockMarketValue", "value": "50000.00", "currency": "USD"}
-    ]
-  """
+
+    Example:
+      >>> await get_account_values()
+      [
+        {"account": "DU123456", "key": "CashBalance", "value": "50000.00", "currency": "USD"},
+        {"account": "DU123456", "key": "StockMarketValue", "value": "50000.00", "currency": "USD"}
+      ]
+    """
+  iface = resolve_interface(account_id)
   try:
     logger.debug("Getting account values")
-    values = await ib_interface.get_account_values()
+    values = await iface.get_account_values()
     return values
   except Exception as e:
     logger.error(f"Error in get_account_values: {e}")
@@ -80,11 +94,16 @@ async def get_account_values() -> list[AccountValue]:
   operation_id="get_positions_detailed",
   response_model=list[Position],
 )
-async def get_positions_detailed() -> list[Position]:
+async def get_positions_detailed(
+  account_id: str | None = ACCOUNT_ID_QUERY,
+) -> list[Position]:
   """Get detailed position information.
-  
+
   Returns all positions with market data, P&L, and contract details.
-  
+
+  Args:
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
+
   Returns:
     List of positions with symbol, quantity, average cost, market value, and P&L.
     
@@ -107,9 +126,10 @@ async def get_positions_detailed() -> list[Position]:
       }
     ]
   """
+  iface = resolve_interface(account_id)
   try:
     logger.debug("Getting detailed positions")
-    positions = await ib_interface.get_positions_detailed()
+    positions = await iface.get_positions_detailed()
     return positions
   except Exception as e:
     logger.error(f"Error in get_positions_detailed: {e}")

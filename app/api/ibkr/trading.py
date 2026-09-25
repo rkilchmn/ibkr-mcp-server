@@ -1,9 +1,14 @@
 """Trading operations endpoints."""
-from fastapi import Body
+from fastapi import Body, Query
 from fastapi.responses import JSONResponse
-from app.api.ibkr import ibkr_router, ib_interface
+from app.api.ibkr import ibkr_router, resolve_interface
 from app.core.setup_logging import logger
 from app.models import PlaceOrderRequest, OrderResponse, OpenOrder
+
+ACCOUNT_ID_QUERY = Query(
+  default=None,
+  description="Account to use (account id from /gateway/status). Empty/omitted uses the default account.", #noqa: E501
+)
 
 
 @ibkr_router.post(
@@ -15,16 +20,17 @@ async def place_order(
   request: PlaceOrderRequest = Body(..., description="Order placement request")
 ) -> OrderResponse:
   """Place a trading order.
-  
+
   Submit a new order to IBKR for execution. Supports various order types including
   market, limit, stop, and stop-limit orders.
-  
+
   Args:
-    request: Order placement request containing contract and order details
-    
+    request: Order placement request containing contract, order details,
+      and an optional account_id (empty/None uses the default account)
+
   Returns:
     Order response with order ID, status, and execution details
-    
+
   Example:
     {
       "contract": {
@@ -40,9 +46,12 @@ async def place_order(
     }
 
   """
+  iface = resolve_interface(request.account_id)
   try:
-    logger.debug(f"Placing order for {request.contract.symbol}")
-    response = await ib_interface.place_order(request.contract, request.order)
+    logger.debug(
+      f"Placing order for {request.contract.symbol} (account_id={request.account_id})"
+    )
+    response = await iface.place_order(request.contract, request.order)
     return response
   except Exception as e:
     logger.error(f"Error in place_order: {e}")
@@ -57,24 +66,29 @@ async def place_order(
   operation_id="cancel_order",
   response_model=dict,
 )
-async def cancel_order(order_id: int) -> dict:
+async def cancel_order(
+  order_id: int,
+  account_id: str | None = ACCOUNT_ID_QUERY,
+) -> dict:
   """Cancel an order by ID.
-  
+
   Cancel a pending or partially filled order.
-  
+
   Args:
     order_id: The order ID to cancel
-    
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
+
   Returns:
     Cancellation status
-    
+
   Example:
     >>> await cancel_order(order_id=1)
     {"success": true, "order_id": 1, "message": "Order cancelled successfully"}
   """
+  iface = resolve_interface(account_id)
   try:
-    logger.debug(f"Cancelling order {order_id}")
-    success = await ib_interface.cancel_order(order_id)
+    logger.debug(f"Cancelling order {order_id} (account_id={account_id})")
+    success = await iface.cancel_order(order_id)
     return {
       "success": success,
       "order_id": order_id,
@@ -93,11 +107,16 @@ async def cancel_order(order_id: int) -> dict:
   operation_id="get_open_orders",
   response_model=list[OpenOrder],
 )
-async def get_open_orders() -> list[OpenOrder]:
+async def get_open_orders(
+  account_id: str | None = ACCOUNT_ID_QUERY,
+) -> list[OpenOrder]:
   """Get all open orders.
-  
+
   Retrieve all pending and partially filled orders.
-  
+
+  Args:
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
+
   Returns:
     List of open orders with details
     
@@ -120,9 +139,10 @@ async def get_open_orders() -> list[OpenOrder]:
       }
     ]
   """
+  iface = resolve_interface(account_id)
   try:
-    logger.debug("Getting open orders")
-    orders = await ib_interface.get_open_orders()
+    logger.debug(f"Getting open orders (account_id={account_id})")
+    orders = await iface.get_open_orders()
     return orders
   except Exception as e:
     logger.error(f"Error in get_open_orders: {e}")

@@ -1,11 +1,15 @@
 """Fundamental data tools."""
 from fastapi import Query
 from fastapi.responses import JSONResponse
-from app.api.ibkr import ibkr_router, ib_interface
+from app.api.ibkr import ibkr_router, resolve_interface
 from app.core.setup_logging import logger
 from app.models import FundamentalData
 
 
+ACCOUNT_ID_QUERY = Query(
+  default=None,
+  description="Account to use (account id from /gateway/status). Empty/omitted uses the default account.", #noqa: E501
+)
 CONTRACT_ID_QUERY = Query(default=None, description="IBKR contract ID. If provided, symbol lookup is skipped.")
 SYMBOL_QUERY = Query(default=None, description="Symbol to look up (e.g., AAPL). Required if contract_id not provided.")
 SEC_TYPE_QUERY = Query(default="STK", description="Security type (STK, OPT, FUT, etc.)")
@@ -26,6 +30,7 @@ async def get_fundamental_data(
   exchange: str | None = EXCHANGE_QUERY,
   currency: str | None = CURRENCY_QUERY,
   report_type: str = REPORT_TYPE_QUERY,
+  account_id: str | None = ACCOUNT_ID_QUERY,
 ) -> FundamentalData:
   """Get fundamental data for a contract.
 
@@ -35,6 +40,7 @@ async def get_fundamental_data(
   provide financial ratios like P/E, dividend yield, etc.
 
   Args:
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
     contract_id: IBKR contract ID. If provided, symbol lookup is skipped.
     symbol: Symbol to look up (e.g., AAPL). Required if contract_id not provided.
     sec_type: Security type (STK, OPT, FUT, etc.).
@@ -83,6 +89,7 @@ async def get_fundamental_data(
       content={"error": "Either 'symbol' or 'contract_id' must be provided"}
     )
 
+  iface = resolve_interface(account_id)
   try:
     logger.debug(
       "Getting fundamental data: symbol={symbol}, contract_id={contract_id}, report_type={report_type}",
@@ -90,7 +97,7 @@ async def get_fundamental_data(
       contract_id=contract_id,
       report_type=report_type,
     )
-    result = await ib_interface.get_fundamental_data(
+    result = await iface.get_fundamental_data(
       contract_id=contract_id,
       symbol=symbol,
       sec_type=sec_type,

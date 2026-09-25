@@ -26,3 +26,4 @@ config/
 ib-gateway-data/**
 server.log
 ib-gateway-data/startup-timings.json
+accounts.yaml
