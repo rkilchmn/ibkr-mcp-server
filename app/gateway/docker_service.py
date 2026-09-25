@@ -1,7 +1,6 @@
 """Docker service for the IBKR Gateway."""
 
 import hashlib
-import json
 import logging
 import os
 import time
@@ -31,47 +30,9 @@ USE_HOST_NETWORK = os.getenv("IB_GATEWAY_USE_HOST_NETWORK", "false").lower() == 
 #   Paper: container 4004/7499
 # Host ports are derived per account: base (4001 live / 4002 paper) + 2 * account index,
 # so parallel gateway containers do not interfere with each other.
-_is_tws_image = "tws-rdesktop" in config.ib_gateway_image
 
 CONTAINER_SECRETS_PATH = "/run/secrets"
 
-# Startup timing: suppress connection errors during initial container boot.
-# Different images warm up at different speeds.
-_DEFAULT_STARTUP_PERIODS = {
-  "ib-gateway": 90,
-  "tws-rdesktop": 150,
-}
-_IMAGE_KEY = "tws-rdesktop" if _is_tws_image else "ib-gateway"
-_STARTUP_PERIOD = int(
-  os.getenv("IB_GATEWAY_STARTUP_PERIOD", "")
-  or _DEFAULT_STARTUP_PERIODS.get(_IMAGE_KEY, 120)
-)
-_STARTUP_TIMINGS_FILE = Path(config.ib_gateway_data_path) / "startup-timings.json"
-
-
-def _load_startup_timings() -> dict[str, int]:
-  """Load persisted startup timings."""
-  if _STARTUP_TIMINGS_FILE.exists():
-    try:
-      return json.loads(_STARTUP_TIMINGS_FILE.read_text())
-    except Exception:
-      return {}
-  return {}
-
-
-def _save_startup_timings(timings: dict[str, int]) -> None:
-  """Persist startup timings."""
-  _STARTUP_TIMINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
-  _STARTUP_TIMINGS_FILE.write_text(json.dumps(timings, indent=2))
-
-
-_startup_timings = _load_startup_timings()
-_effective_startup_period = _startup_timings.get(_IMAGE_KEY, _STARTUP_PERIOD)
-
-
-def _get_startup_period() -> int:
-  """Return the startup period for the current image."""
-  return _effective_startup_period
 
 def build_docker_config(
   cfg,
@@ -604,13 +565,6 @@ class IBKRGatewayDockerService:
     ib_async_logger.setLevel(original_level)
 
     logger.debug(f"IBKR Gateway container is ready after {timer} seconds")
-
-    timings = _load_startup_timings()
-    timings[_IMAGE_KEY] = timer
-    _save_startup_timings(timings)
-    logger.debug(
-      f"Persisted startup timing for {_IMAGE_KEY}: {timer}s"
-    )
 
     return True
 

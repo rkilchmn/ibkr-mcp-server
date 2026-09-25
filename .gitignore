@@ -25,5 +25,4 @@ config/
 # IB-gateway data directory (per-user settings + shared compose files)
 ib-gateway-data/**
 server.log
-ib-gateway-data/startup-timings.json
 accounts.yaml

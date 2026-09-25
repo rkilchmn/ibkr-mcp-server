@@ -166,7 +166,6 @@ You can use http://localhost:6080/ for browser based VNC
 | `IB_GATEWAY_TRADINGMODE` | `paper` | Trading mode (`paper` or `live`) |
 | `IB_GATEWAY_AUTO_RESTART_TIME` | *(none)* | Auto-restart time for the gateway |
 | `IB_GATEWAY_USE_HOST_NETWORK` | `false` | Use Docker host network instead of bridge |
-| `IB_GATEWAY_STARTUP_PERIOD` | *(image-specific)* | Startup period in seconds before health checks |
 | `IB_CONNECTION_TIMEOUT` | `30` | IB API connection timeout (seconds) |
 | `IB_GATEWAY_TIMEOUT` | `300` | Gateway container startup timeout (seconds) |
 | `IB_REQUEST_TIMEOUT` | `30` | Request timeout (seconds) |
@@ -1141,17 +1140,16 @@ curl -X POST "http://localhost:8000/ibkr/connection/reconnect"
 
 ## Docker Files
 
-The server generates and manages Docker compose files and persists startup timings. By default these are stored under `ib-gateway-data/` in the current directory; override with `IB_GATEWAY_DATA_PATH` env var or `--ib-gateway-data-path` CLI arg. The `.docker/` directory is shared across users; per-user TWS settings are stored under `<data_path>/<IB_GATEWAY_USERNAME>/`.
+The server generates and manages Docker compose files. By default these are stored under `ib-gateway-data/` in the current directory; override with `IB_GATEWAY_DATA_PATH` env var or `--ib-gateway-data-path` CLI arg. The `.docker/` directory is shared across users; per-user TWS settings are stored under `<data_path>/<IB_GATEWAY_USERNAME>/`.
 
 | File | Description |
 |------|-------------|
 | `<data_path>/.docker/docker-compose.yml` | Current Docker compose file used to start the container |
 | `<data_path>/.docker/docker-compose.last-success.yml` | Last successfully deployed compose file (used for comparison and rotation) |
-| `<data_path>/startup-timings.json` | Persisted startup timings per image, used to optimize future startup wait periods |
 | `<data_path>/<username>/tws_settings/` | TWS settings persistence directory (for `ib-gateway` image) |
 | `<data_path>/<username>/config/` | TWS settings persistence directory (for `tws-rdesktop` image) |
 
-Compose files are automatically rotated when configuration changes (e.g., image change, port change). On successful container start, the current compose is saved to `docker-compose.last-success.yml` and the startup timing is persisted to `startup-timings.json`.
+Compose files are automatically rotated when configuration changes (e.g., image change, port change). On successful container start, the current compose is saved to `docker-compose.last-success.yml`.
 
 ## Troubleshooting
 

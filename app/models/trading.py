@@ -1,5 +1,4 @@
 """Pydantic models for trading operations."""
-from decimal import Decimal
 from enum import Enum
 from pydantic import BaseModel, Field, field_validator
 
