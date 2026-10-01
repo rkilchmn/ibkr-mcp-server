@@ -30,18 +30,21 @@ async def get_contract_details(
   symbol: str | None = Query(default=None, description="Symbol to get contract details for (optional if contract_id is provided)"),
   sec_type: str = Query(default="STK", description="Security type (used with symbol)"),
   exchange: str = Query(default="SMART", description="Exchange (used with symbol)"),
+  primary_exchange: str | None = Query(default=None, description="Primary exchange for the contract (used with symbol)"),
   currency: str = Query(default="USD", description="Currency (used with symbol)"),
   options: str | None = OPTIONS_QUERY,
   account_id: str | None = ACCOUNT_ID_QUERY,
 ) -> dict:
-  """Get contract details for a given symbol.
+  """Get contract details for a given contract ID or symbol.
 
   Args:
     account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
-    symbol (str): Symbol to get contract details for.
+    contract_id (int | None): Contract ID to get details for (optional if symbol is provided).
+    symbol (str | None): Symbol to get contract details for (optional if contract_id is provided).
     sec_type (str): Security type (STK, IND, CASH, BAG, BOND, FUT, OPT)
     exchange (str): Exchange (CBOE, NYSE, ARCA, BATS, NASDAQ)
-    primary_exchange (str | None): Primary exchange for the contract
+    primary_exchange (str | None): Primary exchange for the contract (used with symbol)
+    currency (str): Currency (used with symbol)
     options (str | None): Optional parameters as JSON string including:
       - last_trade_date_or_contract_month: Expiry date for options - "YYYYMMDD"
       - strike: Strike price for options
@@ -73,6 +76,7 @@ async def get_contract_details(
       symbol=symbol,
       sec_type=sec_type,
       exchange=exchange,
+      primary_exchange=primary_exchange,
       currency=currency,
       options=options_dict,
     )

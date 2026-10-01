@@ -27,6 +27,7 @@ class ContractClient(IBClient):
     symbol: str | None = None,
     sec_type: str = "STK",
     exchange: str = "SMART",
+    primary_exchange: str | None = None,
     currency: str = "USD",
     options: dict | None = None,
   ) -> Dict[str, Any] | List[Dict[str, Any]]:
@@ -48,6 +49,7 @@ class ContractClient(IBClient):
         - ARCA: ARCA
         - BATS: BATS
         - NASDAQ: NASDAQ
+      primary_exchange: Primary exchange for the contract (used with symbol).
       currency: Currency to get contract details for.
       options: Dictionary of options to get contract details for.
         - strike: Strike price to get contract details for.
@@ -92,6 +94,7 @@ class ContractClient(IBClient):
         conId=0,
         symbol=symbol,
         exchange=exchange or '',
+        primaryExchange=primary_exchange or '',
         currency=currency or '',
         secType=sec_type,
         **contract_params,

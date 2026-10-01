@@ -103,6 +103,23 @@ for tool in mcp.tools:
                 "description": "Criteria as a dict (e.g., {'min_delta': -0.06, 'max_delta': -0.04})",
                 "title": "criteria",
             }
+    if tool.name == "get_contract_details":
+        props = tool.inputSchema.get("properties", {})
+        if "contract_id" not in props:
+            props["contract_id"] = {
+                "anyOf": [{"type": "integer"}, {"type": "null"}],
+                "description": "Contract ID to get details for (optional if symbol is provided)",
+                "title": "Contract Id",
+            }
+        for field in ("symbol", "sec_type", "exchange", "currency", "options"):
+            if field in props:
+                props[field]["anyOf"] = [props[field], {"type": "null"}]
+        required = tool.inputSchema.get("required", [])
+        if "symbol" in required:
+            required.remove("symbol")
+        if "sec_type" in required:
+            required.remove("sec_type")
+        tool.inputSchema["required"] = required
     if tool.name == "get_market_data":
         props = tool.inputSchema.get("properties", {})
         if "contract_ids" in props:
