@@ -323,6 +323,8 @@ class IBKRGatewayDockerService:
     self._health_check_semaphore = asyncio.Semaphore(1)
     self._last_health_check = 0
     self._health_check_interval = 2
+    self._health_cache: tuple[float, bool] | None = None
+    self._health_cache_ttl = 30
     self._connection_timeout = config.ib_connection_timeout
     self._gateway_timeout = config.ib_gateway_timeout
     self._data_dir = Path(config.ib_gateway_data_path)
@@ -407,6 +409,7 @@ class IBKRGatewayDockerService:
 
   async def start_gateway(self) -> bool:
     """Start this account's IBKR Gateway container."""
+    self._health_cache = None
     try:
       current_compose, last_success = self._get_compose_paths()
       docker_config = self._get_docker_config()
@@ -509,8 +512,20 @@ class IBKRGatewayDockerService:
       return True
 
   async def health_check(self) -> bool:
-    """Check if the IBKR Gateway container is running (non-blocking, async)."""
+    """Check if the IBKR Gateway container is running (non-blocking, async).
+
+    The probe opens a real IB API connection, so a fresh result is cached for
+    ``_health_cache_ttl`` seconds. Without that, every ``/gateway/status`` call
+    reconnects to the gateway and the endpoint takes seconds instead of
+    milliseconds.
+    """
     current_time = time.time()
+
+    # Serve a recent probe result without touching the gateway.
+    if self._health_cache is not None:
+      cached_at, cached_value = self._health_cache
+      if current_time - cached_at < self._health_cache_ttl:
+        return cached_value
 
     # Rate limiting: don't check too frequently
     if current_time - self._last_health_check < self._health_check_interval:
@@ -519,8 +534,14 @@ class IBKRGatewayDockerService:
       )
 
     async with self._health_check_semaphore:
-      self._last_health_check = time.time()
-      return await self._sync_health_check()
+      # Another waiter may have refreshed the cache while we waited.
+      now = time.time()
+      if self._health_cache is not None and now - self._health_cache[0] < self._health_cache_ttl:
+        return self._health_cache[1]
+      self._last_health_check = now
+      result = await self._sync_health_check()
+      self._health_cache = (time.time(), result)
+      return result
 
   async def _sync_health_check(self) -> bool:
     """Check health asynchronously."""
@@ -571,14 +592,25 @@ class IBKRGatewayDockerService:
   async def get_container_status(self) -> dict[str, Any]:
     """Get the status of the IBKR Gateway container."""
     try:
-      # Check if container exists and get its status
-      if self.container:
-        logger.debug("Getting container status from existing container")
-        container_info = self.container.attrs
-      else:
+      # Check if container exists and get its status.
+      # docker-py caches ``attrs`` at fetch time and only refreshes it via
+      # ``reload()``. A container object held from startup would otherwise keep
+      # reporting its pre-start snapshot ("created" with a zero StartedAt) for
+      # the rest of its life, which in turn skips the health check below since
+      # status never equals "running". Refresh before reading.
+      container = self.container
+      if container is not None:
         try:
-          container = self.client.containers.get(self.container_name)
-          container_info = container.attrs
+          await asyncio.to_thread(container.reload)
+        except docker.errors.NotFound:
+          logger.debug(f"Container {self.container_name} vanished, re-resolving")
+          container = None
+
+      if container is None:
+        try:
+          container = await asyncio.to_thread(
+            self.client.containers.get, self.container_name,
+          )
         except docker.errors.NotFound:
           return {
             "status": "not_found",
@@ -588,6 +620,8 @@ class IBKRGatewayDockerService:
             "finished": None,
             "age": None,
           }
+
+      container_info = container.attrs
 
       # Extract container state information
       state = container_info["State"]
@@ -641,6 +675,7 @@ class IBKRGatewayDockerService:
       logger.debug("Persisting IBKR Gateway container")
       return True
 
+    self._health_cache = None
     try:
       if self.container:
         logger.debug("Stopping IBKR Gateway container...")
