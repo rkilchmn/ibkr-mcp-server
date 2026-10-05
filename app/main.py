@@ -113,7 +113,7 @@ for tool in mcp.tools:
             }
         for field in ("symbol", "sec_type", "exchange", "currency", "options"):
             if field in props:
-                props[field]["anyOf"] = [props[field], {"type": "null"}]
+                props[field] = {"anyOf": [dict(props[field]), {"type": "null"}]}
         required = tool.inputSchema.get("required", [])
         if "symbol" in required:
             required.remove("symbol")
