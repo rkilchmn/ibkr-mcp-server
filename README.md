@@ -157,7 +157,7 @@ You can use http://localhost:6080/ for browser based VNC
 | `VNC_PASSWORD_FILE` | `~/.secrets/ib-gateway/vnc_password` | Host path to VNC password secret file |
 | `IB_GATEWAY_VNC_PASSWORD` | *(none)* | VNC password (less secure than VNC password file) |
 | `IB_GATEWAY_VNC_PORT` | `5900` | Host port for VNC |
-| `IB_GATEWAY_IMAGE` | `ghcr.io/gnzsnz/ib-gateway:latest` | Docker image for IBKR Gateway |
+| `IB_GATEWAY_DOCKER_IMAGE` | `ghcr.io/gnzsnz/ib-gateway:stable` | Docker image for accounts that do not set `docker_image` in `accounts.yaml` (`IB_GATEWAY_IMAGE` still accepted, deprecated) |
 | `IB_GATEWAY_TWS_SETTINGS_PATH` | *(image-specific)* | Host path for TWS settings persistence (default: `<IB_GATEWAY_DATA_PATH>/<IB_GATEWAY_USERNAME>/tws_settings` for ib-gateway, `<IB_GATEWAY_DATA_PATH>/<IB_GATEWAY_USERNAME>/config` for tws-rdesktop) |
 | `TWS_RDP_PORT` | `3389` | Host port for container-side RDP |
 | `MCP_PORT` | `8000` | MCP application port |
@@ -215,6 +215,44 @@ You can use http://localhost:6080/ for browser based VNC
 | `TWS_PASSWORD_PAPER` | TWS password for paper trading |
 | `TWS_PASSWORD_PAPER_FILE` | TWS password file for paper trading |
 
+### Multiple Accounts (`accounts.yaml`)
+
+One gateway container runs per account, in parallel, on dedicated host ports. Accounts are read from `accounts.yaml` in the project root (override the path with the `IB_ACCOUNTS_FILE` env var):
+
+```yaml
+accounts:
+  - account_id: DUP420996
+    description: "Roger SG - Paper Trading"
+    username: ebljlc158
+    trading_mode: paper
+    docker_image: ghcr.io/gnzsnz/ib-gateway:stable
+    default: true
+
+  - account_id: DU2607679
+    description: "Roger AU - Paper Trading"
+    username: d3f93tn6z
+    trading_mode: paper
+    docker_image: ghcr.io/gnzsnz/tws-rdesktop:latest
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `account_id` | yes | Id passed as the `account_id` parameter of API/MCP calls |
+| `username` | yes | IBKR Gateway username of that account |
+| `description` | no | Label returned by the status APIs (defaults to `account_id`) |
+| `trading_mode` | no | `paper` (default) or `live` |
+| `docker_image` | no | Docker image for this account's container. Defaults to `IB_GATEWAY_DOCKER_IMAGE` / `--ib-gateway-image` (`ghcr.io/gnzsnz/ib-gateway:stable` if neither is set) |
+| `default` | no | Exactly one account should set `default: true`; it is used when no `account_id` is given |
+
+Each account picks up the image-specific container layout, so image families can be mixed freely:
+
+| Image family | Remote desktop | Published desktop port | Container API ports | TWS settings mount |
+|--------------|----------------|-------------------------|---------------------|--------------------|
+| `ghcr.io/gnzsnz/ib-gateway:*` | VNC | `IB_GATEWAY_VNC_PORT + index` | `4003` (live) / `4004` (paper) | `<IB_GATEWAY_DATA_PATH>/<username>/tws_settings` → `/home/ibkr/tws_settings` |
+| `ghcr.io/gnzsnz/tws-rdesktop:*` | RDP | `TWS_RDP_PORT + index` | `7498` (live) / `7499` (paper) | `<IB_GATEWAY_DATA_PATH>/<username>/config` → `/config` |
+
+Only the desktop port matching the image is published, so `/gateway/status` and `/ibkr/connection/status` report `vnc_port` for ib-gateway accounts and `rdp_port` for tws-rdesktop accounts (`null` for the other). API host ports are always `4001`/`4002 + 2 * index`.
+
 ### CLI Parameters
 
 ```
@@ -238,7 +276,7 @@ usage: main.py [--mcp-port MCP_PORT] [--log-level LOG_LEVEL] [--mode {PROD,DEV}]
 | `--ib-gateway-tradingmode` | Trading mode - `paper` or `live` (default: paper) |
 | `--read-only-api` | IBKR Gateway read-only API mode - `true` or `false` (default: true, or `READ_ONLY_API` env var) |
 | `--ib-gateway-vnc-password` | VNC password to enable x11vnc inside the gateway container |
-| `--ib-gateway-image` | Docker image for IBKR Gateway (default: ghcr.io/gnzsnz/ib-gateway:latest, or `IB_GATEWAY_IMAGE` env var) |
+| `--ib-gateway-image` | Docker image for accounts that do not set `docker_image` in `accounts.yaml` (default: ghcr.io/gnzsnz/ib-gateway:stable, or `IB_GATEWAY_DOCKER_IMAGE` env var) |
 | `--tws-rdp-port` | Host port for container-side RDP (default: 3389, or `TWS_RDP_PORT` env var) |
 | `--ib-gateway-data-path` | Base directory for `.docker/` and TWS settings (default: `ib-gateway-data` in current dir, or `IB_GATEWAY_DATA_PATH` env var) |
 | `--ib-gateway-tws-settings-path` | Host path for TWS settings persistence (default: `<IB_GATEWAY_DATA_PATH>/tws_settings` for ib-gateway, `<IB_GATEWAY_DATA_PATH>/config` for tws-rdesktop, or `IB_GATEWAY_TWS_SETTINGS_PATH` env var) |

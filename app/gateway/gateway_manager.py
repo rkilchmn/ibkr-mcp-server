@@ -32,6 +32,7 @@ class IBKRGatewayManager:
         port_index=account.index,
         trading_mode=account.trading_mode,
         container_name=f"ibkr-gateway-{account.username}",
+        image=account.docker_image,
       )
     self.is_running: dict[str, bool] = {
       account.account_id: False for account in self.registry.accounts
@@ -105,9 +106,9 @@ class IBKRGatewayManager:
   async def get_gateway_status(self) -> dict[str, Any]:
     """Get the status of all account gateways.
 
-    Only account_id and description are exposed per account (usernames stay
-    private), plus the account's remote desktop port (RDP for tws-rdesktop
-    images, VNC otherwise).
+    Only account_id, description and docker_image are exposed per account
+    (usernames stay private), plus the account's remote desktop port (RDP for
+    tws-rdesktop images, VNC otherwise).
 
     """
     entries: list[dict[str, Any]] = []

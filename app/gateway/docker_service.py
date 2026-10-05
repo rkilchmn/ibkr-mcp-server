@@ -39,6 +39,7 @@ def build_docker_config(
   username: str | None = None,
   port_index: int = 0,
   trading_mode: str | None = None,
+  image: str | None = None,
 ) -> dict[str, Any]:
   """Build docker configuration for one account's gateway container.
 
@@ -48,9 +49,12 @@ def build_docker_config(
     port_index: 0-based account index used to offset host ports so parallel
       containers do not interfere with each other.
     trading_mode: Per-account trading mode ("paper"/"live"), overrides config.
+    image: Per-account Docker image (defaults to the globally configured image).
+      tws-rdesktop images are exposed over RDP, all others over VNC.
 
   """
-  _is_tws_image = "tws-rdesktop" in cfg.ib_gateway_image
+  _image = image or cfg.ib_gateway_docker_image
+  _is_tws_image = "tws-rdesktop" in _image
   if _is_tws_image:
     CONTAINER_LIVE_API_PORT = 7498
     CONTAINER_PAPER_API_PORT = 7499
@@ -71,17 +75,23 @@ def build_docker_config(
 
   effective_username = username or cfg.ib_gateway_username
 
+  # Only the remote desktop port matching the image is mapped: tws-rdesktop
+  # serves RDP, every other image serves VNC.
+  desktop_ports = {
+    f"{RDP_PORT_DOCKER}/tcp" if _is_tws_image else f"{VNC_PORT_DOCKER}/tcp": [
+      {
+        "HostIp": "127.0.0.1",
+        "HostPort": str(rdp_host_port if _is_tws_image else vnc_host_port),
+      }
+    ],
+  }
+
   docker_config: dict[str, Any] = {
-    "image": cfg.ib_gateway_image,
+    "image": _image,
     "ports": None
     if USE_HOST_NETWORK
     else {
-      f"{VNC_PORT_DOCKER}/tcp": [
-        {"HostIp": "127.0.0.1", "HostPort": str(vnc_host_port)},
-      ],
-      f"{RDP_PORT_DOCKER}/tcp": [
-        {"HostIp": "127.0.0.1", "HostPort": str(rdp_host_port)},
-      ],
+      **desktop_ports,
       f"{CONTAINER_LIVE_API_PORT}/tcp": [
         {"HostIp": "127.0.0.1", "HostPort": str(live_api_host_port)},
       ],
@@ -298,6 +308,7 @@ class IBKRGatewayDockerService:
     port_index: int = 0,
     trading_mode: str | None = None,
     container_name: str | None = None,
+    image: str | None = None,
   ) -> None:
     """Initialize the IBKR Gateway Docker service for one account.
 
@@ -307,12 +318,16 @@ class IBKRGatewayDockerService:
         parallel gateway containers do not interfere with each other.
       trading_mode: Per-account trading mode ("paper"/"live").
       container_name: Container name (defaults to ibkr-gateway-<username>).
+      image: Per-account Docker image (defaults to the globally configured
+        image). tws-rdesktop images use different container API ports and are
+        accessed over RDP instead of VNC.
 
     """
     self.client = docker.from_env()
     self._username = username
     self.port_index = port_index
     self.trading_mode = (trading_mode or config.ib_gateway_tradingmode).lower()
+    self.image = image or config.ib_gateway_docker_image
     self.container_name = container_name or f"ibkr-gateway-{self._username}"
     self.api_port = (
       HOST_LIVE_API_PORT
@@ -347,6 +362,7 @@ class IBKRGatewayDockerService:
       username=self._username,
       port_index=self.port_index,
       trading_mode=self.trading_mode,
+      image=self.image,
     )
 
   def _generate_compose(self, docker_config: dict[str, Any]) -> dict[str, Any]:

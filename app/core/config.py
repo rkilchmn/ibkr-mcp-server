@@ -1,10 +1,21 @@
 """Configuration for the application."""
 
-from pydantic_settings import BaseSettings
+from pydantic import AliasChoices, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Image used when an account in accounts.yaml does not specify docker_image.
+# tws-rdesktop images ("...tws-rdesktop:...") are reached over RDP, all
+# others (ib-gateway) over VNC.
+DEFAULT_GATEWAY_IMAGE = "ghcr.io/gnzsnz/ib-gateway:stable"
+
+# Deprecated env var kept as a fallback for existing deployments.
+LEGACY_GATEWAY_IMAGE_ENV_VAR = "IB_GATEWAY_IMAGE"
 
 
 class Config(BaseSettings):
   """Global configuration for the application."""
+
+  model_config = SettingsConfigDict(populate_by_name=True)
 
   ib_gateway_username: str
   ib_gateway_password: str | None = None
@@ -29,7 +40,14 @@ class Config(BaseSettings):
   ib_gateway_readonly: bool = True
   ib_gateway_vnc_password: str | None = None
   ib_gateway_vnc_password_file: str | None = None
-  ib_gateway_image: str = "ghcr.io/gnzsnz/ib-gateway:latest"
+  ib_gateway_docker_image: str = Field(
+    default=DEFAULT_GATEWAY_IMAGE,
+    validation_alias=AliasChoices(
+      "ib_gateway_docker_image",
+      "IB_GATEWAY_DOCKER_IMAGE",
+      LEGACY_GATEWAY_IMAGE_ENV_VAR,
+    ),
+  )
   password_file: str | None = None
   tws_rdp_port: int = 3389
   ib_gateway_tws_settings_path: str | None = None
@@ -66,7 +84,7 @@ class ConfigManager:
     ib_gateway_readonly: bool = True,
     ib_gateway_vnc_password: str | None = None,
     ib_gateway_vnc_password_file: str | None = None,
-    ib_gateway_image: str = "ghcr.io/gnzsnz/ib-gateway:latest",
+    ib_gateway_docker_image: str = DEFAULT_GATEWAY_IMAGE,
     password_file: str | None = None,
     tws_rdp_port: int = 3389,
     ib_gateway_vnc_port: int = 5900,
@@ -91,7 +109,8 @@ class ConfigManager:
         ib_gateway_vnc_password: VNC password to enable x11vnc
         ib_gateway_vnc_password_file: Host path to the VNC password file
           (defaults to ~/.secrets/ibkr-gateway/vnc_password)
-        ib_gateway_image: Docker image for IBKR Gateway
+        ib_gateway_docker_image: Docker image used for accounts that do not
+          set docker_image in accounts.yaml
         password_file: Host path to the abc password file
           (defaults to ~/.secrets/ibkr-gateway/abc_password)
         tws_rdp_port: Host port for container-side RDP (default: 3389)
@@ -117,7 +136,8 @@ class ConfigManager:
       config_kwargs["ib_gateway_vnc_password"] = ib_gateway_vnc_password
     if ib_gateway_vnc_password_file:
       config_kwargs["ib_gateway_vnc_password_file"] = ib_gateway_vnc_password_file
-    config_kwargs["ib_gateway_image"] = ib_gateway_image
+    if ib_gateway_docker_image:
+      config_kwargs["ib_gateway_docker_image"] = ib_gateway_docker_image
     if password_file:
       config_kwargs["password_file"] = password_file
     config_kwargs["tws_rdp_port"] = tws_rdp_port
@@ -161,7 +181,7 @@ def init_config(
   ib_gateway_readonly: bool = True,
     ib_gateway_vnc_password: str | None = None,
     ib_gateway_vnc_password_file: str | None = None,
-    ib_gateway_image: str = "ghcr.io/gnzsnz/ib-gateway:latest",
+    ib_gateway_docker_image: str = DEFAULT_GATEWAY_IMAGE,
     password_file: str | None = None,
     tws_rdp_port: int = 3389,
     ib_gateway_vnc_port: int = 5900,
@@ -186,7 +206,8 @@ def init_config(
         ib_gateway_vnc_password: VNC password to enable x11vnc
         ib_gateway_vnc_password_file: Host path to the VNC password file
         (defaults to ~/.secrets/ibkr-gateway/vnc_password)
-        ib_gateway_image: Docker image for IBKR Gateway
+        ib_gateway_docker_image: Docker image used for accounts that do not
+          set docker_image in accounts.yaml
         password_file: Host path to the abc password file
         (defaults to ~/.secrets/ibkr-gateway/abc_password)
         tws_rdp_port: Host port for container-side RDP (default: 3389)
@@ -205,7 +226,7 @@ mcp_transport: MCP transport type (streamable-http or sse)
         ib_gateway_readonly=ib_gateway_readonly,
         ib_gateway_vnc_password=ib_gateway_vnc_password,
         ib_gateway_vnc_password_file=ib_gateway_vnc_password_file,
-        ib_gateway_image=ib_gateway_image,
+        ib_gateway_docker_image=ib_gateway_docker_image,
         password_file=password_file,
         tws_rdp_port=tws_rdp_port,
         ib_gateway_vnc_port=ib_gateway_vnc_port,

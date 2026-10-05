@@ -40,9 +40,10 @@ async def get_gateway_status() -> dict:
 
   Returns:
     dict: A dictionary containing the list of available accounts. Only
-      account_id and description are exposed per account (usernames stay
-      private), plus each account's remote desktop port (VNC for ib-gateway
-      images, RDP for tws-rdesktop images) and its container status.
+      account_id, description and docker_image are exposed per account
+      (usernames stay private), plus each account's remote desktop port (VNC
+      for ib-gateway images, RDP for tws-rdesktop images) and its container
+      status.
 
   Example:
     >>> get_gateway_status()
@@ -51,6 +52,7 @@ async def get_gateway_status() -> dict:
         {
           "account_id": "DUP420996",
           "description": "Roger SG - Paper Trading",
+          "docker_image": "ghcr.io/gnzsnz/ib-gateway:stable",
           "is_running": true,
           "vnc_port": 5901,
           "rdp_port": null,

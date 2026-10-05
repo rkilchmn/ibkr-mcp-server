@@ -10,6 +10,11 @@ and paper API port:
     (client connects to the live or paper port matching its trading_mode)
   - VNC host port:     configured base VNC port + index
   - RDP host port:     configured base RDP port + index
+
+Every account may set its own ``docker_image``. ``tws-rdesktop`` images are
+reached over RDP, all others (ib-gateway) over VNC, so only the port matching
+the image is exposed. Accounts without ``docker_image`` use the globally
+configured image (``IB_GATEWAY_DOCKER_IMAGE`` / ``--ib-gateway-image``).
 """
 
 import os
@@ -27,6 +32,21 @@ HOST_PAPER_API_PORT = 4002
 
 _DEFAULT_ACCOUNTS_FILE = "accounts.yaml"
 
+# Marker identifying the tws-rdesktop image family (RDP instead of VNC).
+TWS_IMAGE_MARKER = "tws-rdesktop"
+
+
+def is_tws_image(image: str | None = None) -> bool:
+  """True if the given image exposes RDP (tws-rdesktop).
+
+  Args:
+    image: Docker image reference. Defaults to the globally configured image.
+
+  """
+  if image is None:
+    image = get_config().ib_gateway_docker_image
+  return TWS_IMAGE_MARKER in image
+
 
 class UnknownAccountError(LookupError):
   """Raised when an unknown account_id is requested."""
@@ -40,8 +60,14 @@ class AccountConfig:
   description: str
   username: str
   trading_mode: str  # "paper" | "live"
+  docker_image: str
   is_default: bool
   index: int  # 0-based position in the accounts file (drives port offsets)
+
+  @property
+  def is_tws_image(self) -> bool:
+    """True if this account runs a tws-rdesktop image (RDP access)."""
+    return is_tws_image(self.docker_image)
 
   @property
   def api_port(self) -> int:
@@ -66,17 +92,24 @@ class AccountConfig:
 
   @property
   def rdp_port(self) -> int:
-    """Host RDP port of this account's gateway container."""
+    """Host RDP port of this account's gateway container (tws-rdesktop images)."""
     return get_config().tws_rdp_port + self.index
+
+  @property
+  def remote_desktop_port(self) -> int:
+    """Host port used to reach this account's gateway desktop.
+
+    RDP for tws-rdesktop images, VNC otherwise.
+    """
+    return self.rdp_port if self.is_tws_image else self.vnc_port
 
   def public_info(self) -> dict[str, str]:
     """Safe to expose externally (no username)."""
-    return {"account_id": self.account_id, "description": self.description}
-
-
-def is_tws_image() -> bool:
-  """True if the configured gateway image exposes RDP (tws-rdesktop)."""
-  return "tws-rdesktop" in get_config().ib_gateway_image
+    return {
+      "account_id": self.account_id,
+      "description": self.description,
+      "docker_image": self.docker_image,
+    }
 
 
 def remote_desktop_access(account: AccountConfig) -> tuple[str, int]:
@@ -84,7 +117,7 @@ def remote_desktop_access(account: AccountConfig) -> tuple[str, int]:
 
   tws-rdesktop images are accessed via RDP, other images via VNC.
   """
-  if is_tws_image():
+  if account.is_tws_image:
     return "rdp", account.rdp_port
   return "vnc", account.vnc_port
 
@@ -117,6 +150,7 @@ class AccountRegistry:
           description="Default",
           username=config.ib_gateway_username,
           trading_mode=config.ib_gateway_tradingmode,
+          docker_image=config.ib_gateway_docker_image,
           is_default=True,
           index=0,
         )
@@ -154,12 +188,17 @@ class AccountRegistry:
           f"'{trading_mode}' (expected 'paper' or 'live')."
         )
 
+      docker_image = (
+        str(raw.get("docker_image") or "").strip() or config.ib_gateway_docker_image
+      )
+
       accounts.append(
         AccountConfig(
           account_id=account_id,
           description=str(raw.get("description") or account_id),
           username=username,
           trading_mode=trading_mode,
+          docker_image=docker_image,
           is_default=bool(raw.get("default")),
           index=i,
         )
