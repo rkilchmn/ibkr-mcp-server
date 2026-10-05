@@ -89,6 +89,14 @@ class OrderRequest(BaseModel):
   outside_rth: bool = Field(default=False, description="Allow outside regular trading hours")
   hidden: bool = Field(default=False, description="Hidden order")
   order_ref: str | None = Field(None, description="Custom order reference string")
+  transmit: bool = Field(
+    default=True,
+    description=(
+      "Send the order to the exchange (True, default) or only bind it at TWS for "
+      "manual review (False). False creates the order so it is visible and editable "
+      "in TWS but stays inactive until submitted by hand."
+    ),
+  )
 
   @field_validator('total_quantity')
   @classmethod

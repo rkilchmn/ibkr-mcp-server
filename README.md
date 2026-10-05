@@ -420,10 +420,16 @@ Place a new order.
     "total_quantity": 10,
     "order_type": "LMT",
     "lmt_price": 150.25,
-    "time_in_force": "DAY"
+    "time_in_force": "DAY",
+    "transmit": false
   }
 }
 ```
+
+**Fields:** `transmit` (default `true`) sends the order to the exchange. Set it to `false` to
+bind the order at TWS **without** sending it: the order appears in TWS as editable and inactive
+(status `PendingSubmit` / `PreSubmitted`) and only goes live when submitted by hand
+there.
 
 **Example:**
 ```bash
@@ -438,7 +444,8 @@ curl -X POST "http://localhost:8000/ibkr/orders/place" \
       "total_quantity": 10,
       "order_type": "LMT",
       "lmt_price": 150.25,
-      "time_in_force": "DAY"
+      "time_in_force": "DAY",
+      "transmit": false
     }
   }'
 ```

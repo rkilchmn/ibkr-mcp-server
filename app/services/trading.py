@@ -74,6 +74,9 @@ class TradingClient(IBClient):
       ib_order.goodTillDate = order.good_till_date
     if order.order_ref:
       ib_order.orderRef = order.order_ref
+    # False binds the order at TWS without sending it, so it shows up editable and
+    # inactive until submitted by hand.
+    ib_order.transmit = order.transmit
     
     return ib_order
 
@@ -89,7 +92,10 @@ class TradingClient(IBClient):
       order: Order details
       
     Returns:
-      Order response with order ID and status
+      Order response with order ID and status. With ``order.transmit=False`` the
+      order is bound but not sent, so the status comes back as
+      'PendingSubmit' / 'PreSubmitted'
+      and stays that way until it is submitted by hand in TWS.
     """
     await self._connect()
     

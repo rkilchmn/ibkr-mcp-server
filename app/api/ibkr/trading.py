@@ -24,6 +24,11 @@ async def place_order(
   Submit a new order to IBKR for execution. Supports various order types including
   market, limit, stop, and stop-limit orders.
 
+  Set ``order.transmit`` to false to create the order without sending it: it is
+  bound at TWS and shows up there editable and inactive (status
+  'PendingSubmit' / 'PreSubmitted') until
+  submitted by hand, which is how a staged order is reviewed before it goes live.
+
   Args:
     request: Order placement request containing contract, order details,
       and an optional account_id (empty/None uses the default account)
@@ -41,7 +46,8 @@ async def place_order(
         "total_quantity": 100,
         "order_type": "LMT",
         "lmt_price": 150.00,
-        "time_in_force": "DAY"
+        "time_in_force": "DAY",
+        "transmit": false
       }
     }
 
