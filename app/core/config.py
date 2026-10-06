@@ -8,9 +8,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # others (ib-gateway) over VNC.
 DEFAULT_GATEWAY_IMAGE = "ghcr.io/gnzsnz/ib-gateway:stable"
 
-# Deprecated env var kept as a fallback for existing deployments.
-LEGACY_GATEWAY_IMAGE_ENV_VAR = "IB_GATEWAY_IMAGE"
-
 
 class Config(BaseSettings):
   """Global configuration for the application."""
@@ -45,7 +42,6 @@ class Config(BaseSettings):
     validation_alias=AliasChoices(
       "ib_gateway_docker_image",
       "IB_GATEWAY_DOCKER_IMAGE",
-      LEGACY_GATEWAY_IMAGE_ENV_VAR,
     ),
   )
   password_file: str | None = None

@@ -252,7 +252,8 @@ class MarketDataClient(IBClient):
     exchange: str,
     currency: str,
     contract_ids: list[int] | int | None,
-    subscription_type: str = "realtime"
+    subscription_type: str = "realtime",
+    snapshot: bool = False
   ) -> list[dict]:
     """Get tickers for a list of contract IDs, single contract ID, or symbol.
 
@@ -264,6 +265,7 @@ class MarketDataClient(IBClient):
         exchange: Exchange (used with symbol, default: SMART)
         currency: Currency (used with symbol, default: USD)
         subscription_type: Type of market data subscription ("realtime" or "delayed").
+        snapshot: If True, return fast one-time snapshot without waiting for streaming data.
 
     Returns:
         List of tickers for the given contract IDs.
@@ -273,7 +275,7 @@ class MarketDataClient(IBClient):
       await self._connect()
       if contract_ids is None:
         # Create contract from symbol details
-        contracts = [Contract(symbol = symbol, secType = sec_type, exchange = exchange, currency = currency)]
+        contracts = [Contract(symbol=symbol, secType=sec_type, exchange=exchange, currency=currency)]
       else:
         contracts = [Contract(conId=contract_id) for contract_id in contract_ids]
         
@@ -288,8 +290,8 @@ class MarketDataClient(IBClient):
         if batch_result:
           qualified_contracts.extend([c for c in batch_result if c is not None])
       
-      if qualified_contracts is None or len( qualified_contracts) == 0:
-        raise Exception( "No qualified contracts found")
+      if qualified_contracts is None or len(qualified_contracts) == 0:
+        raise Exception("No qualified contracts found")
 
       # Fetch contract timezones for converting timestamps to local time
       timezone_mapping: dict[int, str] = {}
@@ -317,107 +319,90 @@ class MarketDataClient(IBClient):
         market_data_type = DELAYED
       self.ib.reqMarketDataType(market_data_type)
 
-      # Request streaming data for all qualified contracts
-      # Generic ticks: 221=mark price, 165=52-week high/low, 106=opt implied vol, 104=hist vol, 100=opt volume, 101=opt open interest
-      # Note: ticks 100/101 not in ib_async GENERIC_TICK_MAP; volume/openInterest come from tick types 8/22
-      # lastTimestamp (last trade time) comes from tick type 45, no generic tick needed
+      # Request market data - use snapshot mode for fast one-time data, otherwise streaming
       generic_tick_list = "221,165,106,104,100,101"
-      tickers = [self.ib.reqMktData(contract, genericTickList=generic_tick_list) for contract in qualified_contracts]
+      
+      if snapshot:
+        # Fast snapshot mode - use reqTickersAsync which waits for tickSnapshotEnd
+        # This avoids the cached Ticker stale data issue (ib_async#223)
+        # reqTickersAsync handles subscription lifecycle internally
+        try:
+          tickers = await asyncio.wait_for(
+            self.ib.reqTickersAsync(*qualified_contracts, regulatorySnapshot=False),
+            timeout=self.config.ib_request_timeout,
+          )
+        except asyncio.TimeoutError:
+          logger.warning(f"Timeout waiting for snapshot data after {self.config.ib_request_timeout}s")
+          tickers = []
+        result = self._process_tickers(tickers, timezone_mapping)
+      else:
+        # Streaming mode - wait for data to stabilize
+        tickers = [self.ib.reqMktData(contract, genericTickList=generic_tick_list) for contract in qualified_contracts]
 
-      result = []
-      try:
-          # Wait until all tickers have data and have stabilized (no changes for 2 cycles)
-          timeout = self.config.ib_request_timeout
-          interval = 0.5
-          loop = asyncio.get_event_loop()
-          start = loop.time()
-          
-          def _get_ticker_snapshot(ticker):
-              """Get a snapshot of all comparable fields for change detection."""
-              return self._get_ticker_fields(ticker)
-          
-          # Track consecutive cycles with no changes
-          stable_cycles = 0
-          prev_snapshot = None
-          ready = False
-          
-          while not ready:
-              await asyncio.sleep(interval)
-              
-              # Check if all tickers have time
-              all_have_time = all(ticker.time is not None for ticker in tickers)
-              
-              if all_have_time:
-                  # Check for changes since last iteration
-                  curr_snapshot = tuple(_get_ticker_snapshot(t) for t in tickers)
-                  
-                  if prev_snapshot is not None and curr_snapshot == prev_snapshot:
-                      stable_cycles += 1
-                  else:
-                      stable_cycles = 0  # Reset if data changed
-                  
-                  prev_snapshot = curr_snapshot
-                  
-                  # Ready if data is stable for 2 consecutive cycles
-                  if stable_cycles >= 2:
-                      ready = True
-              else:
-                  # Reset stability tracking if any ticker loses time
-                  stable_cycles = 0
-                  prev_snapshot = None
-              
-              # Check timeout
-              elapsed = loop.time() - start
-              if elapsed >= timeout:
-                  logger.warning(f"Timeout waiting for market data after {elapsed:.1f}s for {len(tickers)} tickers")
-                  # Still proceed if we have data, even if not fully stable
-                  if all_have_time:
-                      logger.info(f"Proceeding with {len(tickers)} tickers despite timeout")
-                      ready = True
-                  else:
-                      break
+        result = []
+        try:
+            # Wait until all tickers have data and have stabilized (no changes for 2 cycles)
+            timeout = self.config.ib_request_timeout
+            interval = 0.5
+            loop = asyncio.get_event_loop()
+            start = loop.time()
+            
+            def _get_ticker_snapshot(ticker):
+                """Get a snapshot of all comparable fields for change detection."""
+                return self._get_ticker_fields(ticker)
+            
+            # Track consecutive cycles with no changes
+            stable_cycles = 0
+            prev_snapshot = None
+            ready = False
+            
+            while not ready:
+                await asyncio.sleep(interval)
+                
+                # Check if all tickers have time
+                all_have_time = all(ticker.time is not None for ticker in tickers)
+                
+                if all_have_time:
+                    # Check for changes since last iteration
+                    curr_snapshot = tuple(_get_ticker_snapshot(t) for t in tickers)
+                    
+                    if prev_snapshot is not None and curr_snapshot == prev_snapshot:
+                        stable_cycles += 1
+                    else:
+                        stable_cycles = 0  # Reset if data changed
+                    
+                    prev_snapshot = curr_snapshot
+                    
+                    # Ready if data is stable for 2 consecutive cycles
+                    if stable_cycles >= 2:
+                        ready = True
+                else:
+                    # Reset stability tracking if any ticker loses time
+                    stable_cycles = 0
+                    prev_snapshot = None
+                
+                # Check timeout
+                elapsed = loop.time() - start
+                if elapsed >= timeout:
+                    logger.warning(f"Timeout waiting for market data after {elapsed:.1f}s for {len(tickers)} tickers")
+                    # Still proceed if we have data, even if not fully stable
+                    if all_have_time:
+                        logger.info(f"Proceeding with {len(tickers)} tickers despite timeout")
+                        ready = True
+                    else:
+                        break
 
-          # Process tickers
-          if ready:
-            result = self._process_tickers(tickers, timezone_mapping)
+            # Process tickers
+            if ready:
+              result = self._process_tickers(tickers, timezone_mapping)
 
-      finally:
-          # Cancel all streaming subscriptions
-          for contract in qualified_contracts:
-              self.ib.cancelMktData(contract)
+        finally:
+            # Cancel all streaming subscriptions
+            for contract in qualified_contracts:
+                self.ib.cancelMktData(contract)
 
-          # Optionally clear tickers list if you no longer need it
-          tickers.clear()
-
-      # # Check if we got any greeks data (only for options contracts)
-      # options_contracts = [ticker for ticker in result if ticker.sec_type == "OPT"]
-      # has_greeks = False
-      # if options_contracts:
-      #   has_greeks = any(ticker.greeks for ticker in options_contracts)
-
-      # # Only restart if we have options contracts but no greeks data
-      # if options_contracts and not has_greeks:
-      #   logger.warning("No greeks data for options contracts, restarting gateway...")
-      #   await self.send_command_to_ibc("RESTART")
-      #   await asyncio.sleep(30)
-      #   await self._connect()
-
-      #   # Second attempt
-      #   if self._is_market_open():
-      #     self.ib.reqMarketDataType(LIVE)
-      #   else:
-      #     self.ib.reqMarketDataType(DELAYED)
-      #   tickers = await self.ib.reqTickersAsync(*qualified_contracts)
-
-      #   # Process tickers again
-      #   result = self._process_tickers(tickers)
-      #   # Check if we got greeks data after restart (only for options)
-      #   options_contracts = [ticker for ticker in result if ticker.sec_type == "OPT"]
-      #   has_greeks = False
-      #   if options_contracts:
-      #     has_greeks = any(ticker.greeks for ticker in options_contracts)
-      #   if options_contracts and not has_greeks:
-      #     logger.warning("Still no greeks data after gateway restart")
+            # Optionally clear tickers list if you no longer need it
+            tickers.clear()
 
       result_dict = [ticker.model_dump() for ticker in result]
 

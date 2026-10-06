@@ -18,6 +18,7 @@ CRITERIA_QUERY = Query(default=None, description="Criteria as JSON string")
 SEC_TYPE_QUERY = Query(default="STK", description="Security type (used with symbol)")
 EXCHANGE_QUERY = Query(default="SMART", description="Exchange (used with symbol)")
 CURRENCY_QUERY = Query(default="USD", description="Currency")
+SNAPSHOT_QUERY = Query(default=False, description="Return fast one-time snapshot without waiting for streaming data")
 
 @ibkr_router.get(
   "/market_data",
@@ -30,8 +31,9 @@ async def get_market_data(
   sec_type: str = SEC_TYPE_QUERY,
   exchange: str = EXCHANGE_QUERY,
   currency: str = CURRENCY_QUERY,
-   subscription_type: str = "realtime",
-   account_id: str | None = ACCOUNT_ID_QUERY,
+  subscription_type: str = "realtime",
+  snapshot: bool = SNAPSHOT_QUERY,
+  account_id: str | None = ACCOUNT_ID_QUERY,
 ) -> list[MarketData]:
   """Get market data for a list of contract IDs or symbol.
 
@@ -47,12 +49,13 @@ async def get_market_data(
     exchange: Exchange (used with symbol, default: SMART)
     currency: Currency (used with symbol, default: USD)
     subscription_type: Type of market data subscription (realtime or delayed, default: realtime)
+    snapshot: Return fast one-time snapshot without waiting for streaming data (default: false)
 
   Returns:
     List[MarketData]: A list of market data for the contract IDs.
 
   Example:
-    >>> await get_market_data(symbol="AAPL", subscription_type="delayed")
+    >>> await get_market_data(symbol="AAPL", subscription_type="delayed", snapshot=True)
     [
       {
         "contract_id": 265598,
@@ -100,7 +103,8 @@ async def get_market_data(
       sec_type=sec_type,
       exchange=exchange,
       currency=currency,
-      subscription_type=subscription_type
+      subscription_type=subscription_type,
+      snapshot=snapshot
     )
   except Exception as e:
     logger.error("Error in get_market_data: {!s}", str(e))
@@ -108,6 +112,98 @@ async def get_market_data(
   else:
     logger.debug("Market data: {market_data}", market_data=market_data)
     return market_data
+
+
+@ibkr_router.get(
+  "/market_data/snapshot",
+  operation_id="get_market_data_snapshot",
+  response_model=list[MarketData],
+)
+async def get_market_data_snapshot(
+  contract_ids: list[int] | int | None = CONTRACT_IDS_QUERY,
+  symbol: str | None = Query(default=None, description="Symbol to get data for (optional if contract_ids is provided, recommended for better performance)"),
+  sec_type: str = SEC_TYPE_QUERY,
+  exchange: str = EXCHANGE_QUERY,
+  currency: str = CURRENCY_QUERY,
+  subscription_type: str = "realtime",
+  account_id: str | None = ACCOUNT_ID_QUERY,
+) -> list[MarketData]:
+  """Get fast market data snapshot for a list of contract IDs or symbol.
+
+  This function returns a one-time snapshot of market data without waiting
+  for streaming data to stabilize. It's much faster than the regular market_data endpoint.
+
+  Args:
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
+    contract_ids: One or more contract IDs. Pass a single int or a list of ints.
+    symbol: Symbol to get data for (optional if contract_ids is provided)
+    sec_type: Security type (used with symbol, default: STK)
+    exchange: Exchange (used with symbol, default: SMART)
+    currency: Currency (used with symbol, default: USD)
+    subscription_type: Type of market data subscription (realtime or delayed, default: realtime)
+
+  Returns:
+    List[MarketData]: A list of market data for the contract IDs.
+
+  Example:
+    >>> await get_market_data_snapshot(symbol="AAPL", subscription_type="delayed")
+    [
+      {
+        "contract_id": 265598,
+        "symbol": "AAPL",
+        "sec_type": "STK",
+        "last": 263.55,
+        "close": 272.95,
+        "bid": null,
+        "ask": null,
+        "bid_size": null,
+        "ask_size": null,
+        "high": 272.81,
+        "low": 262.89,
+        "volume": 724566,
+        "mark": null,
+        "high_52_week": null,
+        "low_52_week": null,
+         "volume": 724566,
+         "open_interest": null,
+         "greeks": null,
+         "timestamp": "2026-02-28T07:08:47.821499-05:00",
+         "last_trade_time": "2026-02-28T07:07:55-05:00",
+         "market_data_type": 3
+      }
+    ]
+
+  """
+  # Validate that either symbol or contract_ids is provided
+  if not symbol and not contract_ids:
+    return JSONResponse(
+      status_code=400,
+      content={"error": "Either 'symbol' or 'contract_ids' must be provided"}
+    )
+  
+  iface = resolve_interface(account_id)
+  try:
+    logger.debug(
+      "Getting market data snapshot for contract_ids={contract_ids}, symbol={symbol}",
+      contract_ids=contract_ids,
+      symbol=symbol,
+    )
+    market_data = await iface.get_tickers(
+      contract_ids=contract_ids,
+      symbol=symbol,
+      sec_type=sec_type,
+      exchange=exchange,
+      currency=currency,
+      subscription_type=subscription_type,
+      snapshot=True
+    )
+  except Exception as e:
+    logger.error("Error in get_market_data_snapshot: {!s}", str(e))
+    return []
+  else:
+    logger.debug("Market data snapshot: {market_data}", market_data=market_data)
+    return market_data
+
 
 @ibkr_router.get(
   "/market_data/filtered_options_chain",

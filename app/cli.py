@@ -8,7 +8,7 @@ from pathlib import Path
 import uvicorn
 from dotenv import load_dotenv
 
-from app.core.config import LEGACY_GATEWAY_IMAGE_ENV_VAR, init_config
+from app.core.config import DEFAULT_GATEWAY_IMAGE, init_config
 
 
 def parse_args() -> argparse.Namespace:
@@ -53,7 +53,7 @@ def parse_args() -> argparse.Namespace:
     help="VNC password to enable x11vnc inside the gateway container",
   )
   parser.add_argument(
-    "--ib-gateway-image",
+    "--ib-gateway-docker-image",
     type=str,
     default=None,
     help="Docker image for accounts without a docker_image in accounts.yaml "
@@ -150,10 +150,11 @@ def main() -> None:
   if not password_file:
     password_file = f"~/.secrets/ib-gateway/{username}"
 
-  if not args.ib_gateway_image and not env.get("IB_GATEWAY_DOCKER_IMAGE") and env.get(LEGACY_GATEWAY_IMAGE_ENV_VAR):
+  if not args.ib_gateway_docker_image and not env.get("IB_GATEWAY_DOCKER_IMAGE"):
     logging.warning(
-      f"{LEGACY_GATEWAY_IMAGE_ENV_VAR} is deprecated, "
-      "use IB_GATEWAY_DOCKER_IMAGE instead"
+      "No gateway docker image specified. "
+      "Use --ib-gateway-docker-image or IB_GATEWAY_DOCKER_IMAGE env var. "
+      f"Defaulting to {DEFAULT_GATEWAY_IMAGE}"
     )
 
   # Initialize global config with environment variables and CLI parameters
@@ -173,9 +174,9 @@ def main() -> None:
     ib_gateway_vnc_password=args.ib_gateway_vnc_password
     or env.get("IB_GATEWAY_VNC_PASSWORD"),
     ib_gateway_vnc_password_file=args.vnc_password_file or env.get("VNC_PASSWORD_FILE"),
-    ib_gateway_docker_image=args.ib_gateway_image
+    ib_gateway_docker_image=args.ib_gateway_docker_image
     or env.get("IB_GATEWAY_DOCKER_IMAGE")
-    or env.get(LEGACY_GATEWAY_IMAGE_ENV_VAR),
+    or DEFAULT_GATEWAY_IMAGE,
     ib_gateway_credentials_path=credentials_path,
     ib_gateway_data_path=data_path,
     password_file=args.password_file or env.get("PASSWORD_FILE"),

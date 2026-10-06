@@ -6,6 +6,7 @@ uv sync --reinstall
 # Run the IBKR MCP Server using uv
 uv run python main.py \
   --ib-gateway-tradingmode=paper \
-  --mcp-port "${IBKR_MCP_PORT:-8000}" \
-  --ib-gateway-vnc-password "${IB_GATEWAY_VNC_PASSWORD:-ibkr-gateway}" \
+  --read-only-api=false \
+  --mcp-port "${IBKR_MCP_PORT:-8002}" \
+  --ib-gateway-docker-image="ghcr.io/gnzsnz/tws-rdesktop:latest" \
   "$@"

@@ -14,7 +14,7 @@ and paper API port:
 Every account may set its own ``docker_image``. ``tws-rdesktop`` images are
 reached over RDP, all others (ib-gateway) over VNC, so only the port matching
 the image is exposed. Accounts without ``docker_image`` use the globally
-configured image (``IB_GATEWAY_DOCKER_IMAGE`` / ``--ib-gateway-image``).
+configured image (``IB_GATEWAY_DOCKER_IMAGE`` / ``--ib-gateway-docker-image``).
 """
 
 import os

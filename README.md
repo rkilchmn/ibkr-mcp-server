@@ -125,14 +125,14 @@ This makes the `ibkr-mcp-server` command available in your environment.
    Or with full options:
 
    ```bash
-   ibkr-mcp-server \
-     --ib-gateway-tradingmode=paper \
-     --read-only-api=false \
-     --mcp-port=8002 \
-     --ib-gateway-image=ghcr.io/gnzsnz/tws-rdesktop:latest \
-     --env-file=/path/to/.env \
-     --ib-gateway-data-path=/path/to/ib-gateway-data
-   ```
+ibkr-mcp-server \
+  --ib-gateway-tradingmode=paper \
+  --read-only-api=false \
+  --mcp-port=8002 \
+  --ib-gateway-docker-image=ghcr.io/gnzsnz/tws-rdesktop:latest \
+  --env-file=/path/to/.env \
+  --ib-gateway-data-path=/path/to/ib-gateway-data
+```
 
    Credentials are loaded from the `.env` file.
 
@@ -241,7 +241,7 @@ accounts:
 | `username` | yes | IBKR Gateway username of that account |
 | `description` | no | Label returned by the status APIs (defaults to `account_id`) |
 | `trading_mode` | no | `paper` (default) or `live` |
-| `docker_image` | no | Docker image for this account's container. Defaults to `IB_GATEWAY_DOCKER_IMAGE` / `--ib-gateway-image` (`ghcr.io/gnzsnz/ib-gateway:stable` if neither is set) |
+| `docker_image` | no | Docker image for this account's container. Defaults to `IB_GATEWAY_DOCKER_IMAGE` / `--ib-gateway-docker-image` (`ghcr.io/gnzsnz/ib-gateway:stable` if neither is set) |
 | `default` | no | Exactly one account should set `default: true`; it is used when no `account_id` is given |
 
 Each account picks up the image-specific container layout, so image families can be mixed freely:
@@ -259,7 +259,7 @@ Only the desktop port matching the image is published, so `/gateway/status` and 
 usage: main.py [--mcp-port MCP_PORT] [--log-level LOG_LEVEL] [--mode {PROD,DEV}]
                [--ib-gateway-tradingmode {paper,live}] [--read-only-api READ_ONLY_API]
                [--ib-gateway-vnc-password IB_GATEWAY_VNC_PASSWORD]
-               [--ib-gateway-image IB_GATEWAY_IMAGE] [--tws-rdp-port TWS_RDP_PORT]
+               [--ib-gateway-docker-image IB_GATEWAY_DOCKER_IMAGE] [--tws-rdp-port TWS_RDP_PORT]
                [--ib-gateway-data-path IB_GATEWAY_DATA_PATH]
                [--ib-gateway-tws-settings-path IB_GATEWAY_TWS_SETTINGS_PATH]
                [--ib-gateway-credentials-path IB_GATEWAY_CREDENTIALS_PATH]
@@ -276,7 +276,7 @@ usage: main.py [--mcp-port MCP_PORT] [--log-level LOG_LEVEL] [--mode {PROD,DEV}]
 | `--ib-gateway-tradingmode` | Trading mode - `paper` or `live` (default: paper) |
 | `--read-only-api` | IBKR Gateway read-only API mode - `true` or `false` (default: true, or `READ_ONLY_API` env var) |
 | `--ib-gateway-vnc-password` | VNC password to enable x11vnc inside the gateway container |
-| `--ib-gateway-image` | Docker image for accounts that do not set `docker_image` in `accounts.yaml` (default: ghcr.io/gnzsnz/ib-gateway:stable, or `IB_GATEWAY_DOCKER_IMAGE` env var) |
+| `--ib-gateway-docker-image` | Docker image for accounts that do not set `docker_image` in `accounts.yaml` (default: ghcr.io/gnzsnz/ib-gateway:stable, or `IB_GATEWAY_DOCKER_IMAGE` env var) |
 | `--tws-rdp-port` | Host port for container-side RDP (default: 3389, or `TWS_RDP_PORT` env var) |
 | `--ib-gateway-data-path` | Base directory for `.docker/` and TWS settings (default: `ib-gateway-data` in current dir, or `IB_GATEWAY_DATA_PATH` env var) |
 | `--ib-gateway-tws-settings-path` | Host path for TWS settings persistence (default: `<IB_GATEWAY_DATA_PATH>/tws_settings` for ib-gateway, `<IB_GATEWAY_DATA_PATH>/config` for tws-rdesktop, or `IB_GATEWAY_TWS_SETTINGS_PATH` env var) |

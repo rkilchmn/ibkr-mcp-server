@@ -16,12 +16,15 @@
                 "--ib-gateway-tradingmode=paper",
                 "--read-only-api=false",
                 "--mcp-port=8002",
-                "--ib-gateway-image=ghcr.io/gnzsnz/tws-rdesktop:latest"
-            ], 
+                "--ib-gateway-docker-image=ghcr.io/gnzsnz/tws-rdesktop:latest"
+            ],
             "env": {
                 "IB_GATEWAY_VNC_PORT": "5901",
                 "TWS_RDP_PORT": "3390"
             }
+        }
+    ]
+}
         }
     ]
 }
