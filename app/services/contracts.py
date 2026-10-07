@@ -17,6 +17,7 @@ class ContractClient(IBClient):
 
   Available public methods:
     - get_contract_details: get contract details for a given symbol
+    - match_symbol: get contract descriptions matching a pattern
     - get_options_chain: get options chain for a given underlying contract
 
   """
@@ -143,6 +144,32 @@ class ContractClient(IBClient):
 
     except Exception as e:
       logger.error("Error getting contract details: {}", str(e))
+      raise
+
+  async def match_symbol(self, pattern: str) -> List[Dict[str, Any]]:
+    """Get contract descriptions of contracts that match a pattern.
+
+    Args:
+      pattern: The first few letters of the ticker symbol, or for longer
+        strings a character sequence matching a word in the security name.
+
+    Returns:
+      List of matching contract descriptions, each containing a contract
+      and the list of derivative security types.
+
+    """
+    try:
+      await self._connect()
+
+      matches = await asyncio.wait_for(
+        self.ib.reqMatchingSymbolsAsync(pattern),
+        timeout=self.config.ib_request_timeout,
+      )
+
+      return [obj_to_dict_snake_case(m) for m in matches]
+
+    except Exception as e:
+      logger.error("Error matching symbols for pattern '{}': {}", pattern, str(e))
       raise
 
   async def get_options_chain(

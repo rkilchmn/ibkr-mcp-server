@@ -91,6 +91,46 @@ async def get_contract_details(
       logger.debug("Qualified contract found: {qualified_contract}", qualified_contract=result)
       return {"qualified_contract": result}
 
+@ibkr_router.get("/match_symbol", operation_id="match_symbol")
+async def match_symbol(
+  pattern: str = Query(..., description="The first few letters of the ticker symbol, or for longer strings a character sequence matching a word in the security name."),
+  account_id: str | None = ACCOUNT_ID_QUERY,
+) -> list[dict]:
+  """Get contract descriptions of contracts that match a pattern.
+
+  Args:
+    account_id: Account to use (account id from /gateway/status). Empty/omitted uses the default account.
+    pattern (str): The first few letters of the ticker symbol, or for longer
+      strings a character sequence matching a word in the security name.
+
+  Returns:
+    list[dict]: A list of matching contract descriptions, each containing a
+    contract and the list of derivative security types.
+
+  Example:
+    [
+      {
+        "contract": {
+          "con_id": 265598,
+          "symbol": "AAPL",
+          "sec_type": "STK",
+          "exchange": "NASDAQ",
+          "currency": "USD"
+        },
+        "derivative_sec_types": ["OPT", "FUT"]
+      }
+    ]
+
+  """
+  iface = resolve_interface(account_id)
+  try:
+    logger.debug("Matching symbols for pattern: {pattern}", pattern=pattern)
+    result = await iface.match_symbol(pattern=pattern)
+    return result
+  except Exception as e:
+    logger.error("Error in match_symbol: {!s}", str(e))
+    return []
+
 @ibkr_router.get("/options_chain", operation_id="get_options_chain")
 async def get_options_chain(
   underlying_symbol: str,

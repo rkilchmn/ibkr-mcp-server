@@ -560,12 +560,17 @@ class IBKRGatewayDockerService:
       return result
 
   async def _sync_health_check(self) -> bool:
-    """Check health asynchronously."""
+    """Check health asynchronously by connecting and verifying IBKR app is ready."""
     ib = None
     try:
       ib = IB()
       await ib.connectAsync("127.0.0.1", self.api_port, 1111)
-      return ib.isConnected()
+      if not ib.isConnected():
+        return False
+      # Verify IBKR application is fully initialized by checking server version
+      # This ensures the API server is fully ready, not just the port open
+      await asyncio.wait_for(ib.reqServerVersionAsync(), timeout=5)
+      return True
     except Exception:
       return False
     finally:

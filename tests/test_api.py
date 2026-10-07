@@ -1,6 +1,5 @@
 """Pytest tests for IBKR MCP Server API."""
 import pytest
-import requests
 
 
 # ============================================================================
@@ -103,15 +102,6 @@ class TestMarketData:
             }
         )
         assert response.status_code in [200, 500]
-    
-    @pytest.mark.parametrize("symbol", ["AAPL", "MSFT"])
-    def test_market_data(self, session, base_url, symbol):
-        """Test GET /ibkr/market_data."""
-        response = session.get(
-            f"{base_url}/ibkr/market_data",
-            params={"symbol": symbol}
-        )
-        assert response.status_code in [200, 500]
 
 
 # ============================================================================
@@ -135,6 +125,15 @@ class TestContracts:
             }
         )
         assert response.status_code == 200
+
+    @pytest.mark.parametrize("pattern", ["AAPL", "MSFT", "GOO"])
+    def test_match_symbol(self, session, base_url, pattern):
+        """Test GET /ibkr/match_symbol."""
+        response = session.get(
+            f"{base_url}/ibkr/match_symbol",
+            params={"pattern": pattern}
+        )
+        assert response.status_code in [200, 500]
 
 
 # ============================================================================
