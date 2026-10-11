@@ -1,5 +1,6 @@
 """Trading operations service."""
 import asyncio
+from typing import Optional
 from ib_async import Contract as IBContract, Order as IBOrder, Stock, Option, Future, Forex
 from app.services.client import IBClient
 from app.core.setup_logging import logger
@@ -206,3 +207,93 @@ class TradingClient(IBClient):
     except Exception as e:
       logger.error(f"Failed to get open orders: {e}")
       raise Exception(f"Open orders error: {e}")
+
+  async def modify_order(
+    self,
+    order_id: int,
+    lmt_price: Optional[float] = None,
+    aux_price: Optional[float] = None,
+    total_quantity: Optional[float] = None,
+    order_type: Optional[str] = None,
+    tif: Optional[str] = None,
+    outside_rth: Optional[bool] = None,
+  ) -> OrderResponse:
+    """Modify an existing order by reusing its orderId (true IB modification).
+    
+    Args:
+      order_id: The order ID to modify
+      lmt_price: New limit price (for LMT, STP LMT orders)
+      aux_price: New auxiliary price (stop price for STP, STP LMT, TRAIL orders)
+      total_quantity: New total quantity
+      order_type: New order type (MKT, LMT, STP, STP LMT, TRAIL, TRAIL LIMIT)
+      tif: New time in force (DAY, GTC, IOC, GTD)
+      outside_rth: Allow outside regular trading hours
+      
+    Returns:
+      Order response with updated order ID and status
+      
+    Note:
+      This modifies the existing order in place, preserving the IBKR orderId.
+      The order must be active (not filled/cancelled). Not all fields can be
+      modified after submission - IBKR restrictions apply.
+    """
+    await self._connect()
+    
+    try:
+      # Get all open trades to find the order
+      open_trades = self.ib.openTrades()
+      
+      # Find matching order
+      target_trade = None
+      for trade in open_trades:
+        if trade.order.orderId == order_id:
+          target_trade = trade
+          break
+      
+      if target_trade is None:
+        logger.error(f"Order with ID {order_id} not found in open trades")
+        raise Exception(f"Order {order_id} not found or not active")
+      
+      # Check if order is still modifiable
+      status = target_trade.orderStatus.status
+      if status in ("Filled", "Cancelled", "Inactive", "ApiCancelled"):
+        raise Exception(f"Cannot modify order in status: {status}")
+      
+      # Apply modifications to the existing order object
+      ib_order = target_trade.order
+      ib_contract = target_trade.contract
+      
+      if lmt_price is not None:
+        ib_order.lmtPrice = float(lmt_price)
+      if aux_price is not None:
+        ib_order.auxPrice = float(aux_price)
+      if total_quantity is not None:
+        ib_order.totalQuantity = float(total_quantity)
+      if order_type is not None:
+        ib_order.orderType = order_type
+      if tif is not None:
+        ib_order.tif = tif
+      if outside_rth is not None:
+        ib_order.outsideRth = outside_rth
+      
+      # Resubmit with same contract and order object to modify
+      updated_trade = self.ib.placeOrder(ib_contract, ib_order)
+      await asyncio.sleep(0.5)  # Wait for modification to be acknowledged
+      
+      logger.info(f"Order modified: {order_id} for {ib_contract.symbol}")
+      
+      return OrderResponse(
+        order_id=updated_trade.order.orderId,
+        status=updated_trade.orderStatus.status,
+        symbol=ib_contract.symbol,
+        action=ib_order.action,
+        quantity=float(ib_order.totalQuantity),
+        filled=float(updated_trade.orderStatus.filled),
+        remaining=float(updated_trade.orderStatus.remaining),
+        avg_fill_price=float(updated_trade.orderStatus.avgFillPrice) if updated_trade.orderStatus.avgFillPrice else None,
+        order_ref=updated_trade.order.orderRef or None,
+      )
+      
+    except Exception as e:
+      logger.error(f"Failed to modify order {order_id}: {e}")
+      raise Exception(f"Order modification error: {e}")

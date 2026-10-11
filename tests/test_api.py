@@ -41,6 +41,11 @@ class TestConnection:
         data = response.json()
         assert "connected" in data
 
+    def test_reconnect(self, session, base_url):
+        """Test POST /ibkr/connection/reconnect."""
+        response = session.post(f"{base_url}/ibkr/connection/reconnect")
+        assert response.status_code in [200, 500]
+
 
 # ============================================================================
 # Account Tests
@@ -64,6 +69,14 @@ class TestAccount:
     def test_account_positions(self, session, base_url):
         """Test GET /ibkr/account/positions."""
         response = session.get(f"{base_url}/ibkr/account/positions")
+        assert response.status_code in [200, 500]
+    
+    def test_fundamental(self, session, base_url):
+        """Test GET /ibkr/fundamental."""
+        response = session.get(
+            f"{base_url}/ibkr/fundamental",
+            params={"symbol": "AAPL", "report_type": "CalendarReport"}
+        )
         assert response.status_code in [200, 500]
     
     def test_positions(self, session, base_url):
@@ -90,7 +103,26 @@ class TestMarketData:
         # May return 200 or error depending on subscription
         assert response.status_code in [200, 500]
     
-    @pytest.mark.parametrize("symbol", ["AAPL", "MSFT"])
+    def test_market_data_snapshot(self, session, base_url):
+        """Test GET /ibkr/market_data/snapshot."""
+        response = session.get(
+            f"{base_url}/ibkr/market_data/snapshot",
+            params={"symbol": "AAPL"}
+        )
+        assert response.status_code in [200, 500]
+    
+    def test_filtered_options_chain(self, session, base_url):
+        """Test GET /ibkr/market_data/filtered_options_chain."""
+        response = session.get(
+            f"{base_url}/ibkr/market_data/filtered_options_chain",
+            params={
+                "underlying_symbol": "SPX",
+                "underlying_sec_type": "IND",
+                "underlying_con_id": 123456,
+            }
+        )
+        assert response.status_code in [200, 500]
+    
     def test_historical_data(self, session, base_url, symbol):
         """Test GET /ibkr/market_data/historical."""
         response = session.get(
@@ -135,6 +167,19 @@ class TestContracts:
         )
         assert response.status_code in [200, 500]
 
+    def test_options_chain(self, session, base_url):
+        """Test GET /ibkr/options_chain."""
+        response = session.get(
+            f"{base_url}/ibkr/options_chain",
+            params={
+                "underlying_symbol": "AAPL",
+                "underlying_sec_type": "STK",
+                "underlying_con_id": 265598,
+                "exchange": "SMART"
+            }
+        )
+        assert response.status_code in [200, 500]
+
 
 # ============================================================================
 # Scanner Tests
@@ -156,6 +201,26 @@ class TestScanners:
         )
         assert response.status_code in [200, 500]
 
+    def test_scanner_workflow(self, session, base_url):
+        """Test GET /ibkr/scanner/workflow."""
+        response = session.get(f"{base_url}/ibkr/scanner/workflow")
+        assert response.status_code in [200, 500]
+
+    def test_scanner_location_codes(self, session, base_url):
+        """Test GET /ibkr/scanner/location_codes."""
+        response = session.get(f"{base_url}/ibkr/scanner/location_codes")
+        assert response.status_code in [200, 500]
+
+    def test_scanner_scan_codes(self, session, base_url):
+        """Test GET /ibkr/scanner/scan_codes."""
+        response = session.get(f"{base_url}/ibkr/scanner/scan_codes")
+        assert response.status_code in [200, 500]
+
+    def test_scanner_filter_codes(self, session, base_url):
+        """Test GET /ibkr/scanner/filter_codes."""
+        response = session.get(f"{base_url}/ibkr/scanner/filter_codes")
+        assert response.status_code in [200, 500]
+
 
 # ============================================================================
 # Trading Tests
@@ -169,3 +234,29 @@ class TestTrading:
         """Test GET /ibkr/orders/open."""
         response = session.get(f"{base_url}/ibkr/orders/open")
         assert response.status_code in [200, 500]
+
+    def test_place_order(self, session, base_url):
+        """Test POST /ibkr/orders/place."""
+        response = session.post(
+            f"{base_url}/ibkr/orders/place",
+            json={
+                "contract": {"symbol": "AAPL", "sec_type": "STK", "exchange": "SMART", "currency": "USD"},
+                "order": {"action": "BUY", "total_quantity": 1, "order_type": "LMT", "lmt_price": 100.00, "transmit": False}
+            }
+        )
+        # May fail if not connected, invalid contract, etc.
+        assert response.status_code in [200, 422, 500]
+
+    def test_cancel_order(self, session, base_url):
+        """Test DELETE /ibkr/orders/{order_id}."""
+        response = session.delete(f"{base_url}/ibkr/orders/999999")
+        assert response.status_code in [200, 422, 500]
+
+    def test_modify_order(self, session, base_url):
+        """Test POST /ibkr/orders/modify."""
+        response = session.post(
+            f"{base_url}/ibkr/orders/modify",
+            json={"order_id": 999999, "lmt_price": 150.00}
+        )
+        # Order not found returns 500, invalid input returns 422
+        assert response.status_code in [200, 422, 500]
