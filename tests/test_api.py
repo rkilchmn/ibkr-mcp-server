@@ -1,4 +1,5 @@
 """Pytest tests for IBKR MCP Server API."""
+
 import pytest
 
 
@@ -6,10 +7,11 @@ import pytest
 # Gateway Tests
 # ============================================================================
 
+
 @pytest.mark.gateway
 class TestGateway:
     """Tests for Gateway endpoints."""
-    
+
     def test_gateway_status(self, session, base_url):
         """Test GET /gateway/status."""
         response = session.get(f"{base_url}/gateway/status")
@@ -17,7 +19,7 @@ class TestGateway:
         data = response.json()
         assert "is_running" in data
         assert "container" in data
-    
+
     def test_gateway_logs(self, session, base_url):
         """Test GET /gateway/logs."""
         response = session.get(f"{base_url}/gateway/logs?tail=10")
@@ -30,10 +32,11 @@ class TestGateway:
 # Connection Tests
 # ============================================================================
 
+
 @pytest.mark.connection
 class TestConnection:
     """Tests for Connection endpoints."""
-    
+
     def test_connection_status(self, session, base_url):
         """Test GET /ibkr/connection/status."""
         response = session.get(f"{base_url}/ibkr/connection/status")
@@ -51,34 +54,42 @@ class TestConnection:
 # Account Tests
 # ============================================================================
 
+
 @pytest.mark.account
 class TestAccount:
     """Tests for Account endpoints."""
-    
+
     def test_account_summary(self, session, base_url):
         """Test GET /ibkr/account/summary."""
         response = session.get(f"{base_url}/ibkr/account/summary")
         # May return 200 or 500 depending on connection
         assert response.status_code in [200, 500]
-    
+
     def test_account_values(self, session, base_url):
         """Test GET /ibkr/account/values."""
         response = session.get(f"{base_url}/ibkr/account/values")
         assert response.status_code in [200, 500]
-    
+
     def test_account_positions(self, session, base_url):
         """Test GET /ibkr/account/positions."""
         response = session.get(f"{base_url}/ibkr/account/positions")
         assert response.status_code in [200, 500]
-    
+        if response.status_code == 200:
+            data = response.json()
+            if data:
+                for pos in data:
+                    assert "avg_cost" in pos
+                    assert "local_symbol" in pos
+                    assert "contract_id" in pos
+
     def test_fundamental(self, session, base_url):
         """Test GET /ibkr/fundamental."""
         response = session.get(
             f"{base_url}/ibkr/fundamental",
-            params={"symbol": "AAPL", "report_type": "CalendarReport"}
+            params={"symbol": "AAPL", "report_type": "CalendarReport"},
         )
         assert response.status_code in [200, 500]
-    
+
     def test_positions(self, session, base_url):
         """Test GET /ibkr/positions."""
         response = session.get(f"{base_url}/ibkr/positions")
@@ -89,28 +100,27 @@ class TestAccount:
 # Market Data Tests
 # ============================================================================
 
+
 @pytest.mark.market_data
 class TestMarketData:
     """Tests for Market Data endpoints."""
-    
+
     @pytest.mark.parametrize("symbol", ["AAPL", "MSFT", "GOOGL"])
     def test_market_data(self, session, base_url, symbol):
         """Test GET /ibkr/market_data."""
         response = session.get(
-            f"{base_url}/ibkr/market_data",
-            params={"symbol": symbol}
+            f"{base_url}/ibkr/market_data", params={"symbol": symbol}
         )
         # May return 200 or error depending on subscription
         assert response.status_code in [200, 500]
-    
+
     def test_market_data_snapshot(self, session, base_url):
         """Test GET /ibkr/market_data/snapshot."""
         response = session.get(
-            f"{base_url}/ibkr/market_data/snapshot",
-            params={"symbol": "AAPL"}
+            f"{base_url}/ibkr/market_data/snapshot", params={"symbol": "AAPL"}
         )
         assert response.status_code in [200, 500]
-    
+
     def test_filtered_options_chain(self, session, base_url):
         """Test GET /ibkr/market_data/filtered_options_chain."""
         response = session.get(
@@ -119,19 +129,15 @@ class TestMarketData:
                 "underlying_symbol": "SPX",
                 "underlying_sec_type": "IND",
                 "underlying_con_id": 123456,
-            }
+            },
         )
         assert response.status_code in [200, 500]
-    
+
     def test_historical_data(self, session, base_url, symbol):
         """Test GET /ibkr/market_data/historical."""
         response = session.get(
             f"{base_url}/ibkr/market_data/historical",
-            params={
-                "symbol": symbol,
-                "duration": "1 D",
-                "bar_size": "1 min"
-            }
+            params={"symbol": symbol, "duration": "1 D", "bar_size": "1 min"},
         )
         assert response.status_code in [200, 500]
 
@@ -140,10 +146,11 @@ class TestMarketData:
 # Contract Tests
 # ============================================================================
 
+
 @pytest.mark.contracts
 class TestContracts:
     """Tests for Contract endpoints."""
-    
+
     @pytest.mark.parametrize("symbol", ["AAPL", "MSFT", "GOOGL"])
     def test_contract_details(self, session, base_url, symbol):
         """Test GET /ibkr/contract_details."""
@@ -153,8 +160,8 @@ class TestContracts:
                 "symbol": symbol,
                 "sec_type": "STK",
                 "exchange": "SMART",
-                "currency": "USD"
-            }
+                "currency": "USD",
+            },
         )
         assert response.status_code == 200
 
@@ -162,8 +169,7 @@ class TestContracts:
     def test_match_symbol(self, session, base_url, pattern):
         """Test GET /ibkr/match_symbol."""
         response = session.get(
-            f"{base_url}/ibkr/match_symbol",
-            params={"pattern": pattern}
+            f"{base_url}/ibkr/match_symbol", params={"pattern": pattern}
         )
         assert response.status_code in [200, 500]
 
@@ -175,8 +181,8 @@ class TestContracts:
                 "underlying_symbol": "AAPL",
                 "underlying_sec_type": "STK",
                 "underlying_con_id": 265598,
-                "exchange": "SMART"
-            }
+                "exchange": "SMART",
+            },
         )
         assert response.status_code in [200, 500]
 
@@ -185,10 +191,11 @@ class TestContracts:
 # Scanner Tests
 # ============================================================================
 
+
 @pytest.mark.scanners
 class TestScanners:
     """Tests for Scanner endpoints."""
-    
+
     def test_scanner_results(self, session, base_url):
         """Test GET /ibkr/scanner/results."""
         response = session.get(
@@ -196,8 +203,8 @@ class TestScanners:
             params={
                 "instrument_code": "STK",
                 "location_code": "STK.US",
-                "scan_code": "MOST_ACTIVE"
-            }
+                "scan_code": "MOST_ACTIVE",
+            },
         )
         assert response.status_code in [200, 500]
 
@@ -226,10 +233,11 @@ class TestScanners:
 # Trading Tests
 # ============================================================================
 
+
 @pytest.mark.trading
 class TestTrading:
     """Tests for Trading endpoints."""
-    
+
     def test_get_open_orders(self, session, base_url):
         """Test GET /ibkr/orders/open."""
         response = session.get(f"{base_url}/ibkr/orders/open")
@@ -240,9 +248,20 @@ class TestTrading:
         response = session.post(
             f"{base_url}/ibkr/orders/place",
             json={
-                "contract": {"symbol": "AAPL", "sec_type": "STK", "exchange": "SMART", "currency": "USD"},
-                "order": {"action": "BUY", "total_quantity": 1, "order_type": "LMT", "lmt_price": 100.00, "transmit": False}
-            }
+                "contract": {
+                    "symbol": "AAPL",
+                    "sec_type": "STK",
+                    "exchange": "SMART",
+                    "currency": "USD",
+                },
+                "order": {
+                    "action": "BUY",
+                    "total_quantity": 1,
+                    "order_type": "LMT",
+                    "lmt_price": 100.00,
+                    "transmit": False,
+                },
+            },
         )
         # May fail if not connected, invalid contract, etc.
         assert response.status_code in [200, 422, 500]
@@ -256,7 +275,7 @@ class TestTrading:
         """Test POST /ibkr/orders/modify."""
         response = session.post(
             f"{base_url}/ibkr/orders/modify",
-            json={"order_id": 999999, "lmt_price": 150.00}
+            json={"order_id": 999999, "lmt_price": 150.00},
         )
         # Order not found returns 500, invalid input returns 422
         assert response.status_code in [200, 422, 500]
